@@ -1,0 +1,155 @@
+/* Stylischer Button für A*-Pfad */
+.a-star-btn {
+	background: linear-gradient(90deg, #7ec6e6 0%, #bfa34a 100%);
+	color: #3e5c2b;
+	border: none;
+	border-radius: 6px;
+	padding: 0.5em 1.2em;
+	font-size: 1.1em;
+	font-family: 'IM Fell English', 'Old English Text MT', serif;
+	font-weight: bold;
+	margin-left: 0.5em;
+	cursor: pointer;
+	box-shadow: 0 2px 8px #8c5c2b22;
+	transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+.a-star-btn:hover {
+	background: linear-gradient(90deg, #bfa34a 0%, #7ec6e6 100%);
+	color: #fffbe6;
+	transform: translateY(-2px) scale(1.04);
+}
+/* Für A*-Visualisierung */
+.open-cell {
+	background: #7ec6e6 !important;
+}
+.closed-cell {
+	background: #b0b0b0 !important;
+}
+.end-cell {
+	background: #a74f4f !important;
+	font-weight: bold;
+	color: #fffbe6;
+	text-align: center;
+	font-size: 1.2em;
+}
+.start-cell {
+	background: #bfa34a !important;
+	font-weight: bold;
+	color: #5a3e2b;
+	text-align: center;
+	font-size: 1.2em;
+}
+/* Grid für generierte Zellen im Main-Content */
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, 30px);
+	grid-auto-rows: 30px;
+	gap: 2px;
+	justify-content: center;
+	margin: 2rem auto;
+	width: max-content;
+}
+
+.grid-cell {
+	width: 30px;
+	height: 30px;
+	background: #e2c7a1;
+	border: 1px solid #8c5c2b;
+	border-radius: 4px;
+	box-sizing: border-box;
+	transition: background 0.2s;
+	overflow: visible;
+}
+.grid-cell:hover {
+	background: #d1b07a;
+	cursor: pointer;
+}
+footer {
+	background: #f0f0f0;
+	text-align: center;
+	padding: 1rem 0;
+	border-top: 1px solid #ddd;
+	font-size: 0.95rem;
+	color: #555;
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 10;
+}
+
+main {
+	padding: 2rem 1rem;
+	max-width: 800px;
+  height: 535px;
+	margin: 2rem auto;
+	margin-bottom: 60px; /* Abstand für Footer */
+}
+
+body {
+	margin: 0;
+	font-family: 'IM Fell English', 'Old English Text MT', serif;
+	background: #f5e9da;
+	color: #5a3e2b;
+}
+
+header {
+	background: #7c4a27;
+	padding: 1.5rem 0 1rem 0;
+	text-align: center;
+	border-bottom: 3px solid #8c5c2b;
+	color: #fffbe6;
+	letter-spacing: 0.05em;
+	font-family: 'IM Fell English', 'Old English Text MT', serif;
+}
+
+nav ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	justify-content: center;
+	gap: 1.5rem;
+}
+
+nav a {
+	color: #5a3e2b;
+	text-decoration: none;
+	font-weight: bold;
+	font-size: 1.1rem;
+	font-family: 'IM Fell English', 'Old English Text MT', serif;
+}
+
+nav a:hover {
+	text-decoration: underline;
+	color: #a9744f;
+}
+
+main {
+	padding: 2rem 1rem;
+	max-width: 800px;
+	margin: 2rem auto;
+	background: #f5e9daee;
+	border-radius: 12px;
+	box-shadow: 0 0 24px #8c5c2b22;
+	border: 8px solid #8c5c2b;
+font-family: 'IM Fell English', 'Old English Text MT', serif;
+color: #5a3e2b;
+letter-spacing: 0.04em;
+}
+
+footer {
+	background: #7c4a27;
+	text-align: center;
+	padding: 1rem 0;
+	border-top: 3px solid #8c5c2b;
+	font-size: 1rem;
+	color: #fffbe6;
+	font-family: 'IM Fell English', 'Old English Text MT', serif;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  grid-template-rows: repeat(15, 1fr);
+}
