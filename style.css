@@ -48,6 +48,8 @@
 	justify-content: center;
 	margin: 2rem auto;
 	width: max-content;
+	position: relative;
+	z-index: 10;
 }
 
 .grid-cell {
@@ -63,6 +65,10 @@
 .grid-cell:hover {
 	background: #d1b07a;
 	cursor: pointer;
+}
+.grid-cell.wall-cell {
+  background-color: #333;
+  color: #fff;
 }
 footer {
 	background: #f0f0f0;
@@ -125,6 +131,30 @@ nav a:hover {
 	color: #a9744f;
 }
 
+nav ul li a, nav ul li button {
+  display: inline-block;
+  padding: 0.5em 1.2em;
+  background: none;
+  border: none;
+  color: #3e5c2b;
+  font-size: 1.1em;
+  font-family: 'IM Fell English', 'Old English Text MT', serif;
+  font-weight: bold;
+  text-decoration: none;
+  border-radius: 6px;
+  margin-left: 0.5em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
+}
+nav ul li button {
+  background: none;
+}
+nav ul li a:hover, nav ul li button:hover {
+  background: linear-gradient(90deg, #bfa34a 0%, #7ec6e6 100%);
+  color: #fffbe6;
+  transform: translateY(-2px) scale(1.04);
+}
+
 main {
 	padding: 2rem 1rem;
 	max-width: 800px;
@@ -152,4 +182,16 @@ footer {
   display: grid;
   grid-template-columns: repeat(20, 1fr);
   grid-template-rows: repeat(15, 1fr);
+}
+
+#main-content {
+  position: relative;
+}
+
+#enemy-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 20;
 }
