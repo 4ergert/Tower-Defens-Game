@@ -1,181 +1,530 @@
-/* Stylischer Button für A*-Pfad */
-.a-star-btn {
-	background: linear-gradient(90deg, #7ec6e6 0%, #bfa34a 100%);
-	color: #3e5c2b;
-	border: none;
-	border-radius: 6px;
-	padding: 0.5em 1.2em;
-	font-size: 1.1em;
-	font-family: 'IM Fell English', 'Old English Text MT', serif;
-	font-weight: bold;
-	margin-left: 0.5em;
-	cursor: pointer;
-	box-shadow: 0 2px 8px #8c5c2b22;
-	transition: background 0.2s, color 0.2s, transform 0.1s;
+header {
+  background: linear-gradient(90deg, #0f0c29 0%, #24243e 100%);
+  border-bottom: 4px solid #00fff7;
+  box-shadow: 0 0 24px #00fff7, 0 0 8px #00fff7 inset;
+  padding: 1.5rem 0 1rem 0;
+  text-align: center;
+  color: #00fff7;
+  letter-spacing: 0.08em;
+  font-family: 'Orbitron', Arial, sans-serif;
+  text-shadow: 0 0 18px #00fff7, 0 0 8px #00fff7;
 }
-.a-star-btn:hover {
-	background: linear-gradient(90deg, #bfa34a 0%, #7ec6e6 100%);
-	color: #fffbe6;
-	transform: translateY(-2px) scale(1.04);
+
+header h1 {
+  color: #00fff7;
+  text-shadow: 0 0 24px #00fff7, 0 0 8px #00fff7;
+  font-family: 'Orbitron', Arial, sans-serif;
+  font-size: 2.5em;
+  letter-spacing: 0.12em;
+  margin: 0;
 }
-/* Für A*-Visualisierung */
-.open-cell {
-	background: #7ec6e6 !important;
+
+main {
+  background: rgba(34, 0, 51, 0.55);
+  box-shadow: 0 0 8px #00fff7, 0 0 2px #ff00c8 inset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IM Fell English', 'Old English Text MT', serif;
+  letter-spacing: 0.04em;
 }
-.closed-cell {
-	background: #b0b0b0 !important;
+
+#main-content {
+  box-shadow: 0 0 24px #00fff7, 0 0 8px #ff00c8 inset;
+  border-radius: 18px;
+  background: rgba(34, 0, 51, 0.55);
+  margin: 18px auto;
+  padding: 18px;
+  /* transition: box-shadow 0.3s; */
+  /* animation: gridPulse 2.2s infinite alternate; */
 }
-.end-cell {
-	background: #a74f4f !important;
-	font-weight: bold;
-	color: #fffbe6;
-	text-align: center;
-	font-size: 1.2em;
+
+footer {
+  background: linear-gradient(90deg, #0f0c29 0%, #24243e 100%);
+  color: #00fff7;
+  text-shadow: 0 0 18px #00fff7, 0 0 8px #00fff7;
+  border-top: 4px solid #00fff7;
+  box-shadow: 0 0 24px #00fff7, 0 0 8px #00fff7 inset;
+  padding: 1.5rem 0 1rem 0;
+  text-align: center;
+  letter-spacing: 0.08em;
+  font-family: 'Orbitron', Arial, sans-serif;
 }
-.start-cell {
-	background: #bfa34a !important;
-	font-weight: bold;
-	color: #5a3e2b;
-	text-align: center;
-	font-size: 1.2em;
+
+/* Orbitron Schrift für Cyberpunk */
+@import url('https://fonts.googleapis.com/css?family=Orbitron:700&display=swap');
+
+body {
+  background: linear-gradient(135deg, #1a0036 0%, #0f0c29 40%, #24243e 100%);
+  color: #f8f8ff;
+  font-family: 'Orbitron', 'IM Fell English', Arial, sans-serif;
+  letter-spacing: 0.03em;
+  overflow-x: hidden;
 }
-/* Grid für generierte Zellen im Main-Content */
-.grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, 30px);
-	grid-auto-rows: 30px;
-	gap: 2px;
-	justify-content: center;
-	margin: 2rem auto;
-	width: max-content;
-	position: relative;
-	z-index: 10;
+
+/* Neon-Licht Animation */
+.neon-glow {
+  animation: neonGlow 1.2s infinite alternate;
+}
+
+@keyframes neonGlow {
+  0% {
+    filter: drop-shadow(0 0 6px #00fff7) drop-shadow(0 0 2px #ff00c8);
+  }
+
+  100% {
+    filter: drop-shadow(0 0 18px #ff00c8) drop-shadow(0 0 8px #00fff7);
+  }
+}
+
+#coins-symbol {
+  color: #ffe066;
+  text-shadow: 0 0 16px #ffe066, 0 0 2px #fff;
+  animation: neonGlow 1.2s infinite alternate;
+}
+
+.flying-coin {
+  font-size: 2em;
+  filter: drop-shadow(0 0 12px #ffe066);
+  animation: neonGlow 1.2s infinite alternate;
 }
 
 .grid-cell {
-	width: 30px;
-	height: 30px;
-	background: #e2c7a1;
-	border: 1px solid #8c5c2b;
-	border-radius: 4px;
-	box-sizing: border-box;
-	transition: background 0.2s;
-	overflow: visible;
+  background: rgba(34, 0, 51, 0.7);
+  border: 1.5px solid #ff00c8;
+  box-shadow: 0 0 6px #00fff7 inset, 0 0 8px #ff00c8;
 }
+
+.grid-cell.wall-cell {
+  background: #ff00c8 !important;
+  color: #fff;
+  border-color: #ff00c8;
+  box-shadow: 0 0 18px #ff00c8, 0 0 8px #00fff7;
+}
+
+.grid-cell.turret-cell {
+  background: #00fff7 !important;
+  color: #1a0036;
+  border-color: #00fff7;
+  box-shadow: 0 0 18px #00fff7, 0 0 8px #ff00c8;
+}
+
+.grid-cell.start-cell {
+  background: #ffe066 !important;
+  color: #1a0036;
+  border-color: #ffe066;
+  box-shadow: 0 0 18px #ffe066, 0 0 8px #ff00c8;
+}
+
+.grid-cell.end-cell {
+  background: #00fff7 !important;
+  color: #1a0036;
+  border-color: #00fff7;
+  box-shadow: 0 0 18px #00fff7, 0 0 8px #ff00c8;
+}
+
+.tower-select-btn {
+  background: #1a0036;
+  color: #00fff7;
+  border: 2px solid #ff00c8;
+  box-shadow: 0 0 8px #ff00c8, 0 0 4px #00fff7;
+  font-family: 'Orbitron', Arial, sans-serif;
+}
+
+.tower-select-btn.selected {
+  background: #ff00c8;
+  color: #fff;
+  border-color: #00fff7;
+  box-shadow: 0 0 12px #00fff7, 0 0 8px #ff00c8;
+}
+
+.tower-select-btn.animate {
+  animation: towerBtnClick 0.18s cubic-bezier(.68, -0.55, .27, 1.55);
+}
+
+#lives-container {
+  background: rgba(34, 0, 51, 0.85);
+  border: 2px solid #00fff7;
+  box-shadow: 0 0 16px #00fff7, 0 2px 8px #ff00c8;
+}
+
+footer {
+  color: #ffe066;
+  text-shadow: 0 0 8px #ffe066;
+  background: transparent;
+  border-top: 1px solid #ff00c8;
+  padding-top: 8px;
+}
+
+/* Energiebalken Neon-Glow */
+.enemy-bar-glow {
+  filter: drop-shadow(0 0 6px #00fff7) drop-shadow(0 0 2px #ff00c8);
+}
+
+/* --- Cyberpunk Style --- */
+body {
+  background: linear-gradient(135deg, #1a0036 0%, #0f0c29 40%, #24243e 100%);
+  color: #f8f8ff;
+  font-family: 'Orbitron', 'IM Fell English', Arial, sans-serif;
+  letter-spacing: 0.03em;
+}
+
+#lives-container {
+  background: rgba(34, 0, 51, 0.85);
+  border: 2px solid #00fff7;
+  box-shadow: 0 0 16px #00fff7, 0 2px 8px #8c5c2b22;
+}
+
+#heart-symbol {
+  color: #ff00c8;
+  text-shadow: 0 0 8px #ff00c8, 0 0 2px #fff;
+}
+
+#coins-symbol {
+  color: #ffe066;
+  text-shadow: 0 0 8px #ffe066, 0 0 2px #fff;
+}
+
+#wave-symbol {
+  color: #00fff7;
+  text-shadow: 0 0 8px #00fff7, 0 0 2px #fff;
+}
+
+.grid-cell {
+  background: rgba(34, 0, 51, 0.7);
+  border: 1.5px solid #ff00c8;
+  box-shadow: 0 0 6px #00fff7 inset;
+}
+
+.grid-cell.wall-cell {
+  background: #ff00c8 !important;
+  color: #fff;
+  border-color: #ff00c8;
+  box-shadow: 0 0 12px #ff00c8;
+}
+
+.grid-cell.turret-cell {
+  background: #00fff7 !important;
+  color: #1a0036;
+  border-color: #00fff7;
+  box-shadow: 0 0 12px #00fff7;
+}
+
+.grid-cell.start-cell {
+  background: #ffe066 !important;
+  color: #1a0036;
+  border-color: #ffe066;
+  box-shadow: 0 0 12px #ffe066;
+}
+
+.grid-cell.end-cell {
+  background: #00fff7 !important;
+  color: #1a0036;
+  border-color: #00fff7;
+  box-shadow: 0 0 12px #00fff7;
+}
+
+.tower-select-btn {
+  background: #1a0036;
+  color: #00fff7;
+  border: 2px solid #ff00c8;
+  box-shadow: 0 0 8px #ff00c8;
+  transition: background 0.15s, border 0.15s, color 0.15s;
+}
+
+.tower-select-btn.selected {
+  background: #ff00c8;
+  color: #fff;
+  border-color: #00fff7;
+  box-shadow: 0 0 12px #00fff7;
+}
+
+.tower-select-btn.animate {
+  animation: towerBtnClick 0.18s cubic-bezier(.68, -0.55, .27, 1.55);
+}
+
+footer {
+  color: #ffe066;
+  text-shadow: 0 0 8px #ffe066;
+  background: transparent;
+  border-top: 1px solid #ff00c8;
+  padding-top: 8px;
+}
+
+/* Animierte Münze beim Enemy-Treffer */
+.flying-coin {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  font-size: 1.5em;
+  transition: transform 0.7s cubic-bezier(.68, -0.55, .27, 1.55), opacity 0.7s;
+  will-change: transform, opacity;
+}
+
+/* Münzen-Anzeige */
+#coins-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#coins-symbol-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.1em;
+}
+
+#coins-symbol {
+  font-size: 1.2em;
+}
+
+/* Turm-Zelle (X) */
+.grid-cell.turret-cell {
+  background: #207c38 !important;
+  color: #b22222;
+  font-weight: bold;
+  font-size: 1.2em;
+  border: 1px solid #0e2d15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Animation für Tower-Button beim Klick */
+.tower-select-btn.animate {
+  animation: towerBtnClick 0.18s cubic-bezier(.68, -0.55, .27, 1.55);
+}
+
+@keyframes towerBtnClick {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Tower selection menu styles */
+#tower-menu {
+  margin-bottom: 10px;
+}
+
+.tower-select-btn {
+  padding: 6px 18px;
+  border-radius: 7px;
+  border: 2px solid #bfa34a;
+  background: #fffbe7;
+  color: #6b4c1b;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border 0.15s;
+}
+
+.tower-select-btn.selected {
+  background: #ffe066;
+  border-color: #e6c200;
+  color: #3e2a0a;
+  box-shadow: 0 2px 8px #bfa34a33;
+}
+
+/* Pulsierende Animation für Startzelle */
+@keyframes pulse-start-cell {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 #7ec6e6;
+  }
+
+  50% {
+    transform: scale(1.09);
+    box-shadow: 0 0 18px 7px #7ec6e6cc;
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 #7ec6e6;
+  }
+}
+
+.start-cell.pulse {
+  animation: pulse-start-cell 1.7s infinite cubic-bezier(.68, -0.55, .27, 1.55);
+  z-index: 10;
+}
+
+/* Stylischer Button für A*-Pfad */
+/* Herzsymbol und Leben links außerhalb des Main-Rahmens */
+#lives-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 42px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #8c5c2b22;
+  padding: 4px 10px;
+  font-size: 20px;
+  background: #dd00ff66;
+  border: 1.5px solid #bfa34a;
+}
+
+#heart-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#heart-symbol-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#waves-row {
+  display: flex;
+  align-items: center;
+}
+
+#heart-symbol {
+  font-size: 1.3em;
+  margin-right: 6px;
+  color: #e74c3c;
+  filter: drop-shadow(0 2px 2px #bfa34a44);
+}
+
+#waves-container {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  font-size: 0.95em;
+  color: #3e5c2b;
+  gap: 4px;
+}
+
+#wave-symbol {
+  font-size: 1.1em;
+  margin-right: 2px;
+}
+
+#waves-count {
+  font-family: 'IM Fell English', serif;
+  font-weight: bold;
+  font-size: 1em;
+}
+
+#lives-count {
+  font-family: 'IM Fell English', serif;
+  font-weight: bold;
+  color: #3e5c2b;
+  font-size: 1em;
+}
+
+/* Für A*-Visualisierung */
+.open-cell {
+  background: #7ec6e6 !important;
+}
+
+.closed-cell {
+  background: #b0b0b0 !important;
+}
+
+.end-cell {
+  background: #a74f4f !important;
+  font-weight: bold;
+  color: #fffbe6;
+  text-align: center;
+  font-size: 1.2em;
+}
+
+.start-cell {
+  background: #bfa34a !important;
+  font-weight: bold;
+  color: #5a3e2b;
+  text-align: center;
+  font-size: 1.2em;
+}
+
+/* Grid für generierte Zellen im Main-Content */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 30px);
+  grid-auto-rows: 30px;
+  gap: 2px;
+  justify-content: center;
+  margin: 2rem auto;
+  width: max-content;
+  position: relative;
+  z-index: 10;
+}
+
+.grid-cell {
+  width: 30px;
+  height: 30px;
+  background: #e2c7a1;
+  border: 1px solid #8c5c2b;
+  border-radius: 4px;
+  box-sizing: border-box;
+  transition: background 0.2s;
+  overflow: visible;
+}
+
 .grid-cell:hover {
-	background: #d1b07a;
-	cursor: pointer;
+  background: #d1b07a;
+  cursor: pointer;
 }
+
 .grid-cell.wall-cell {
   background-color: #333;
   color: #fff;
-}
-footer {
-	background: #f0f0f0;
-	text-align: center;
-	padding: 1rem 0;
-	border-top: 1px solid #ddd;
-	font-size: 0.95rem;
-	color: #555;
-	position: fixed;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 10;
+  text-align: center;
+  vertical-align: middle;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-main {
-	padding: 2rem 1rem;
-	max-width: 800px;
-  height: 535px;
-	margin: 2rem auto;
-	margin-bottom: 60px; /* Abstand für Footer */
+footer {
+  background: #f0f0f0;
+  text-align: center;
+  padding: 1rem 0;
+  border-top: 1px solid #ddd;
+  font-size: 0.95rem;
+  color: #555;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
 }
 
 body {
-	margin: 0;
-	font-family: 'IM Fell English', 'Old English Text MT', serif;
-	background: #f5e9da;
-	color: #5a3e2b;
-}
-
-header {
-	background: #7c4a27;
-	padding: 1.5rem 0 1rem 0;
-	text-align: center;
-	border-bottom: 3px solid #8c5c2b;
-	color: #fffbe6;
-	letter-spacing: 0.05em;
-	font-family: 'IM Fell English', 'Old English Text MT', serif;
-}
-
-nav ul {
-	list-style: none;
-	padding: 0;
-	margin: 0;
-	display: flex;
-	justify-content: center;
-	gap: 1.5rem;
-}
-
-nav a {
-	color: #5a3e2b;
-	text-decoration: none;
-	font-weight: bold;
-	font-size: 1.1rem;
-	font-family: 'IM Fell English', 'Old English Text MT', serif;
-}
-
-nav a:hover {
-	text-decoration: underline;
-	color: #a9744f;
-}
-
-nav ul li a, nav ul li button {
-  display: inline-block;
-  padding: 0.5em 1.2em;
-  background: none;
-  border: none;
-  color: #3e5c2b;
-  font-size: 1.1em;
+  margin: 0;
   font-family: 'IM Fell English', 'Old English Text MT', serif;
-  font-weight: bold;
-  text-decoration: none;
-  border-radius: 6px;
-  margin-left: 0.5em;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, transform 0.1s;
-}
-nav ul li button {
-  background: none;
-}
-nav ul li a:hover, nav ul li button:hover {
-  background: linear-gradient(90deg, #bfa34a 0%, #7ec6e6 100%);
-  color: #fffbe6;
-  transform: translateY(-2px) scale(1.04);
-}
-
-main {
-	padding: 2rem 1rem;
-	max-width: 800px;
-	margin: 2rem auto;
-	background: #f5e9daee;
-	border-radius: 12px;
-	box-shadow: 0 0 24px #8c5c2b22;
-	border: 8px solid #8c5c2b;
-font-family: 'IM Fell English', 'Old English Text MT', serif;
-color: #5a3e2b;
-letter-spacing: 0.04em;
+  background: #f5e9da;
 }
 
 footer {
-	background: #7c4a27;
-	text-align: center;
-	padding: 1rem 0;
-	border-top: 3px solid #8c5c2b;
-	font-size: 1rem;
-	color: #fffbe6;
-	font-family: 'IM Fell English', 'Old English Text MT', serif;
+  background: #dd00ff66;
+  text-align: center;
+  padding: 1rem 0;
+  font-size: 1rem;
+  color: #fffbe6;
+  font-family: 'IM Fell English', 'Old English Text MT', serif;
+}
+footer {
+  background: linear-gradient(90deg, #0f0c29 0%, #24243e 100%);
+  color: #00fff7;
+  text-shadow: 0 0 18px #00fff7, 0 0 8px #00fff7;
+  border-top: 4px solid #00fff7;
+  box-shadow: 0 0 24px #00fff7, 0 0 8px #00fff7 inset;
+  padding: 1.5rem 0 1rem 0;
+  text-align: center;
+  letter-spacing: 0.08em;
+  font-family: 'Orbitron', Arial, sans-serif;
 }
 
 .grid {

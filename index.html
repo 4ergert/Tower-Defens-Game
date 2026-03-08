@@ -10,23 +10,39 @@
 </head>
 
 <body onload="init()">
+  <!-- lives-container nur im main-content -->
   <header>
-    <h1>Willkommen auf meiner Internetseite</h1>
-    <nav>
-      <ul>
-        <li><a href="#">Home</a></li>
-        <li><a href="#">Über uns</a></li>
-        <li><button id="start-btn" style="cursor:pointer;">Start</button></li>
-      </ul>
-    </nav>
+    <h1>Tower Defense</h1>
   </header>
   <main>
     <section id="main-content">
-
+      <div id="top-bar">
+        <div id="lives-container">
+          <div id="heart-row">
+            <div id="heart-symbol-wrap">
+              <span id="heart-symbol">❤️</span>
+              <span id="lives-count">100</span>
+            </div>
+          </div>
+          <div id="coins-row">
+            <div id="coins-symbol-wrap">
+              <span id="coins-symbol">🪙</span>
+              <span id="coins-count">50</span>
+            </div>
+          </div>
+          <div id="waves-row">
+            <div id="waves-container">
+              <span id="wave-symbol">🌊</span>
+              <span id="waves-count">1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- grid und tower-menu werden per JS eingefügt -->
     </section>
   </main>
   <footer>
-    <p>&copy; 2026 Meine Internetseite</p>
+    <p>&copy; 2026 Tower Defense</p>
   </footer>
   <script src="script.js"></script>
 </body>
