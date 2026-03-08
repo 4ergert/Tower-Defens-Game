@@ -206,6 +206,19 @@ function createGrid() {
   mainContent.appendChild(grid);
   mainContent.appendChild(towerMenu);
 
+  if (!document.getElementById('build-area-visual-style')) {
+    const style = document.createElement('style');
+    style.id = 'build-area-visual-style';
+    style.textContent = `
+      .grid-cell.build-allowed-cell {
+        outline: 2px solid rgba(0, 255, 247, 0.9);
+        outline-offset: -2px;
+        box-shadow: 0 0 10px rgba(0, 255, 247, 0.8) inset, 0 0 6px rgba(0, 255, 247, 0.55);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   // Pre-game Radiusvorschau auf eigener Canvas
   grid.style.position = 'relative';
   let preStartRadiusCanvas = null;
@@ -349,6 +362,33 @@ function createGrid() {
   // --- Tower Selection Logic ---
   window.selectedTowerType = undefined;
   window.selectedTurretIndex = null;
+  window._showBuildAreaHint = false;
+
+  function clearBuildAreaVisualization() {
+    const allCells = getCells();
+    allCells.forEach(c => c.classList.remove('build-allowed-cell'));
+  }
+
+  function refreshBuildAreaVisualization(forceShow = false) {
+    if (forceShow) window._showBuildAreaHint = true;
+    const showByTool = window.selectedTowerType === 'wall' || window.selectedTowerType === 'turret';
+    const shouldShow = showByTool || window._showBuildAreaHint;
+    if (!shouldShow) {
+      clearBuildAreaVisualization();
+      return;
+    }
+
+    const allCells = getCells();
+    allCells.forEach((cellEl, idx) => {
+      if (cellEl.classList.contains('start-cell') || cellEl.classList.contains('end-cell')) {
+        cellEl.classList.remove('build-allowed-cell');
+        return;
+      }
+      if (isWithinBuildRadiusOfEnd(idx)) cellEl.classList.add('build-allowed-cell');
+      else cellEl.classList.remove('build-allowed-cell');
+    });
+  }
+
   towerMenu.addEventListener('click', (e) => {
     if (e.target.matches('.tower-select-btn')) {
       document.querySelectorAll('.tower-select-btn').forEach(btn => btn.classList.remove('selected'));
@@ -357,53 +397,97 @@ function createGrid() {
       e.target.classList.remove('animate');
       void e.target.offsetWidth;
       e.target.classList.add('animate');
+      refreshBuildAreaVisualization();
     }
   });
 
   // --- Cell Click Handler for Towers/Walls ---
+  function isWithinBuildRadiusOfEnd(cellIdx) {
+    const endCell = getEndCell();
+    if (!endCell) return false;
+    const allCells = getCells();
+    const endIdx = Array.from(allCells).indexOf(endCell);
+    if (endIdx < 0) return false;
+
+    const endX = endIdx % COLS;
+    const endY = Math.floor(endIdx / COLS);
+    const cellX = cellIdx % COLS;
+    const cellY = Math.floor(cellIdx / COLS);
+    const dx = Math.abs(cellX - endX);
+    const dy = Math.abs(cellY - endY);
+    // Diagonale Schritte zaehlen als 1 Feld (Chebyshev-Distanz)
+    return Math.max(dx, dy) <= 2;
+  }
+
   const cells = grid.querySelectorAll('.grid-cell');
   cells.forEach((cell, cellIdx) => {
     cell.addEventListener('click', function() {
-      if (cell.classList.contains('start-cell') || cell.classList.contains('end-cell')) return;
+      if (cell.classList.contains('end-cell')) {
+        window._showBuildAreaHint = !window._showBuildAreaHint;
+        refreshBuildAreaVisualization();
+        return;
+      }
+      if (cell.classList.contains('start-cell')) return;
       if (window.selectedTowerType === 'wall') {
+        if (!isWithinBuildRadiusOfEnd(cellIdx)) return;
         // Bereits vorhandene Mauer bei erneutem Klick nicht loeschen
         if (cell.classList.contains('wall-cell')) {
           window.selectedTurretIndex = null;
           window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
+        // Bebaute Zellen nicht mit Mauer ueberschreiben
+        if (cell.classList.contains('turret-cell')) {
+          window.selectedTurretIndex = cellIdx;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
           return;
         }
         if (window.selectedTurretIndex === cellIdx) window.selectedTurretIndex = null;
-        cell.classList.remove('turret-cell');
         cell.classList.add('wall-cell');
         cell.textContent = 'W';
         window.refreshTurretRadiusDisplay?.();
+        refreshBuildAreaVisualization();
       }
       // Turm
       else if (window.selectedTowerType === 'turret') {
+        if (!isWithinBuildRadiusOfEnd(cellIdx)) return;
         // Bereits vorhandenen Turm bei erneutem Klick nur auswaehlen
         if (cell.classList.contains('turret-cell')) {
           window.selectedTurretIndex = cellIdx;
           window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
           return;
         }
-        // Entferne Mauer, falls vorhanden
-        cell.classList.remove('wall-cell');
+        // Bebaute Zellen nicht mit Turm ueberschreiben
+        if (cell.classList.contains('wall-cell')) {
+          window.selectedTurretIndex = null;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
         cell.classList.add('turret-cell');
         cell.textContent = 'X';
         window.selectedTurretIndex = cellIdx;
         window.refreshTurretRadiusDisplay?.();
+        refreshBuildAreaVisualization();
       } else {
         // Ohne Bau-Auswahl: Turm auswählen, um den Radius zu sehen
         if (cell.classList.contains('turret-cell')) {
           window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
           window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
         } else {
           window.selectedTurretIndex = null;
           window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
         }
       }
     });
   });
+
+  refreshBuildAreaVisualization();
 }
 
 function getAllowedEdgeIndices(cols, rows, edgeDist) {
