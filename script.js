@@ -197,6 +197,8 @@ function createGrid() {
   towerMenu.innerHTML = `
     <button class="tower-select-btn" data-tower="wall">Mauer</button>
     <button class="tower-select-btn" data-tower="turret">Turm</button>
+    <button class="tower-select-btn" data-tower="cannon">Kanone</button>
+    <button class="tower-select-btn" data-tower="barracks">Kaserne</button>
   `;
 
   // Set order for flex layout: grid left, menu right
@@ -211,9 +213,9 @@ function createGrid() {
     style.id = 'build-area-visual-style';
     style.textContent = `
       .grid-cell.build-allowed-cell {
-        outline: 2px solid rgba(0, 255, 247, 0.9);
+        outline: 1px solid rgb(55, 255, 20);
         outline-offset: -2px;
-        box-shadow: 0 0 10px rgba(0, 255, 247, 0.8) inset, 0 0 6px rgba(0, 255, 247, 0.55);
+        box-shadow: 0 0 4px rgba(55, 255, 20, 0.6) inset, 0 0 11px rgba(55, 255, 20, 0.45);
       }
     `;
     document.head.appendChild(style);
@@ -266,7 +268,7 @@ function createGrid() {
     const selectedIdx = window.selectedTurretIndex;
     const cellsNow = getCells();
     const selectedCell = (selectedIdx === null || selectedIdx === undefined) ? null : cellsNow[selectedIdx];
-    if (!selectedCell || !selectedCell.classList.contains('turret-cell')) {
+    if (!selectedCell || (!selectedCell.classList.contains('turret-cell') && !selectedCell.classList.contains('cannon-cell'))) {
       preStartRadiusAnimating = false;
       removePreStartRadiusCanvas();
       return;
@@ -371,7 +373,7 @@ function createGrid() {
 
   function refreshBuildAreaVisualization(forceShow = false) {
     if (forceShow) window._showBuildAreaHint = true;
-    const showByTool = window.selectedTowerType === 'wall' || window.selectedTowerType === 'turret';
+    const showByTool = window.selectedTowerType === 'wall' || window.selectedTowerType === 'turret' || window.selectedTowerType === 'cannon' || window.selectedTowerType === 'barracks';
     const shouldShow = showByTool || window._showBuildAreaHint;
     if (!shouldShow) {
       clearBuildAreaVisualization();
@@ -384,7 +386,7 @@ function createGrid() {
         cellEl.classList.remove('build-allowed-cell');
         return;
       }
-      if (isWithinBuildRadiusOfEnd(idx)) cellEl.classList.add('build-allowed-cell');
+      if (isBuildAllowed(idx)) cellEl.classList.add('build-allowed-cell');
       else cellEl.classList.remove('build-allowed-cell');
     });
   }
@@ -419,6 +421,27 @@ function createGrid() {
     return Math.max(dx, dy) <= 2;
   }
 
+  function isWithinOneCellOfBuiltStructure(cellIdx) {
+    const allCells = getCells();
+    const cellX = cellIdx % COLS;
+    const cellY = Math.floor(cellIdx / COLS);
+    for (let i = 0; i < allCells.length; i++) {
+      const c = allCells[i];
+      // Nur Turm-Bauten erweitern die Bauzone, Mauern nicht
+      if (!c.classList.contains('turret-cell') && !c.classList.contains('cannon-cell') && !c.classList.contains('barracks-cell')) continue;
+      const bx = i % COLS;
+      const by = Math.floor(i / COLS);
+      const dx = Math.abs(cellX - bx);
+      const dy = Math.abs(cellY - by);
+      if (Math.max(dx, dy) <= 1) return true;
+    }
+    return false;
+  }
+
+  function isBuildAllowed(cellIdx) {
+    return isWithinBuildRadiusOfEnd(cellIdx) || isWithinOneCellOfBuiltStructure(cellIdx);
+  }
+
   const cells = grid.querySelectorAll('.grid-cell');
   cells.forEach((cell, cellIdx) => {
     cell.addEventListener('click', function() {
@@ -429,7 +452,7 @@ function createGrid() {
       }
       if (cell.classList.contains('start-cell')) return;
       if (window.selectedTowerType === 'wall') {
-        if (!isWithinBuildRadiusOfEnd(cellIdx)) return;
+        if (!isBuildAllowed(cellIdx)) return;
         // Bereits vorhandene Mauer bei erneutem Klick nicht loeschen
         if (cell.classList.contains('wall-cell')) {
           window.selectedTurretIndex = null;
@@ -438,8 +461,8 @@ function createGrid() {
           return;
         }
         // Bebaute Zellen nicht mit Mauer ueberschreiben
-        if (cell.classList.contains('turret-cell')) {
-          window.selectedTurretIndex = cellIdx;
+        if (cell.classList.contains('turret-cell') || cell.classList.contains('cannon-cell') || cell.classList.contains('barracks-cell')) {
+          window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
           return;
@@ -452,16 +475,16 @@ function createGrid() {
       }
       // Turm
       else if (window.selectedTowerType === 'turret') {
-        if (!isWithinBuildRadiusOfEnd(cellIdx)) return;
-        // Bereits vorhandenen Turm bei erneutem Klick nur auswaehlen
+        if (!isBuildAllowed(cellIdx)) return;
+        // Bereits vorhandenen Turm bei erneutem Klick ein-/auswaehlen
         if (cell.classList.contains('turret-cell')) {
-          window.selectedTurretIndex = cellIdx;
+          window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
           return;
         }
         // Bebaute Zellen nicht mit Turm ueberschreiben
-        if (cell.classList.contains('wall-cell')) {
+        if (cell.classList.contains('wall-cell') || cell.classList.contains('cannon-cell') || cell.classList.contains('barracks-cell')) {
           window.selectedTurretIndex = null;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
@@ -472,9 +495,53 @@ function createGrid() {
         window.selectedTurretIndex = cellIdx;
         window.refreshTurretRadiusDisplay?.();
         refreshBuildAreaVisualization();
+      }
+      // Kanonenturm
+      else if (window.selectedTowerType === 'cannon') {
+        if (!isBuildAllowed(cellIdx)) return;
+        // Bereits vorhandene Kanone bei erneutem Klick ein-/auswaehlen
+        if (cell.classList.contains('cannon-cell')) {
+          window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
+        // Bebaute Zellen nicht mit Kanone ueberschreiben
+        if (cell.classList.contains('wall-cell') || cell.classList.contains('turret-cell') || cell.classList.contains('barracks-cell')) {
+          window.selectedTurretIndex = null;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
+        cell.classList.add('cannon-cell');
+        cell.textContent = 'C';
+        window.selectedTurretIndex = cellIdx;
+        window.refreshTurretRadiusDisplay?.();
+        refreshBuildAreaVisualization();
+      }
+      // Kaserne
+      else if (window.selectedTowerType === 'barracks') {
+        if (!isBuildAllowed(cellIdx)) return;
+        if (cell.classList.contains('barracks-cell')) {
+          window.selectedTurretIndex = null;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
+        if (cell.classList.contains('wall-cell') || cell.classList.contains('turret-cell') || cell.classList.contains('cannon-cell')) {
+          window.selectedTurretIndex = null;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
+        cell.classList.add('barracks-cell');
+        cell.textContent = 'B';
+        window.selectedTurretIndex = null;
+        window.refreshTurretRadiusDisplay?.();
+        refreshBuildAreaVisualization();
       } else {
         // Ohne Bau-Auswahl: Turm auswählen, um den Radius zu sehen
-        if (cell.classList.contains('turret-cell')) {
+        if (cell.classList.contains('turret-cell') || cell.classList.contains('cannon-cell')) {
           window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
@@ -692,10 +759,17 @@ function startGame() {
       if (coinsElem) coinsElem.textContent = '50';
     // --- Bullet System ---
     let activeBullets = [];
+    let activeHitShards = [];
+    let activeHitBursts = [];
+    let activeSoldiers = [];
     let TURRET_RANGE = 0;
     const BULLET_SPEED = 420;
     const TURRET_COOLDOWN = 650; // ms
+    const CANNON_COOLDOWN = 1300; // ms
+    const CANNON_AOE_RADIUS = 0.9; // in cell widths
+    const BARRACKS_SPAWN_MS = 2000;
     let turretCooldowns = {};
+    let barracksSpawnTimers = {};
 
   let currentWave = 1;
   const maxWaves = 11;
@@ -795,6 +869,19 @@ function startGame() {
     };
   }
 
+  function drawStarShape(ctx, x, y, outerRadius, innerRadius) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const angle = -Math.PI / 2 + i * (Math.PI / 5);
+      const r = i % 2 === 0 ? outerRadius : innerRadius;
+      const px = x + Math.cos(angle) * r;
+      const py = y + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
   function ensureRadiusAnimationRunning() {
     if (window.selectedTurretIndex === null || window.selectedTurretIndex === undefined) return;
     setupSharedCanvas();
@@ -808,6 +895,119 @@ function startGame() {
   function enemyAnimationLoop(timestamp) {
     if (!sharedEnemyCtx) return;
     sharedEnemyCtx.clearRect(0, 0, sharedEnemyCanvas.width, sharedEnemyCanvas.height);
+
+    // --- BARRACKS SPAWN (soldiers via A*) ---
+    function findAStarPathIndices(startIdx, endIdx) {
+      const cells = getCells();
+      if (startIdx < 0 || endIdx < 0) return [];
+
+      function idxToXY(idx) {
+        return [idx % COLS, Math.floor(idx / COLS)];
+      }
+      function xyToIdx(x, y) {
+        return y * COLS + x;
+      }
+      function heuristic(a, b) {
+        const [ax, ay] = idxToXY(a);
+        const [bx, by] = idxToXY(b);
+        return Math.abs(ax - bx) + Math.abs(ay - by);
+      }
+
+      const wallSet = new Set();
+      cells.forEach((cell, idx) => {
+        if (cell.classList.contains('wall-cell')) wallSet.add(idx);
+      });
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const allowThroughWalls = attempt === 1;
+        const openSet = [startIdx];
+        const cameFrom = {};
+        const gScore = Array(COLS * ROWS).fill(Infinity);
+        const fScore = Array(COLS * ROWS).fill(Infinity);
+        const closedSet = new Set();
+        gScore[startIdx] = 0;
+        fScore[startIdx] = heuristic(startIdx, endIdx);
+
+        while (openSet.length > 0) {
+          let current = openSet.reduce((a, b) => (fScore[a] < fScore[b] ? a : b));
+          if (current === endIdx) {
+            let path = [current];
+            while (cameFrom[current] !== undefined) {
+              current = cameFrom[current];
+              path.push(current);
+            }
+            path.reverse();
+            return path;
+          }
+
+          openSet.splice(openSet.indexOf(current), 1);
+          closedSet.add(current);
+
+          const [x, y] = idxToXY(current);
+          const neighbors = [];
+          if (x > 0) neighbors.push(xyToIdx(x - 1, y));
+          if (x < COLS - 1) neighbors.push(xyToIdx(x + 1, y));
+          if (y > 0) neighbors.push(xyToIdx(x, y - 1));
+          if (y < ROWS - 1) neighbors.push(xyToIdx(x, y + 1));
+
+          for (const neighbor of neighbors) {
+            if (closedSet.has(neighbor)) continue;
+            if (!allowThroughWalls && wallSet.has(neighbor)) continue;
+            const tentativeG = gScore[current] + 1;
+            if (!openSet.includes(neighbor)) openSet.push(neighbor);
+            else if (tentativeG >= gScore[neighbor]) continue;
+            cameFrom[neighbor] = current;
+            gScore[neighbor] = tentativeG;
+            fScore[neighbor] = gScore[neighbor] + heuristic(neighbor, endIdx);
+          }
+        }
+      }
+
+      return [];
+    }
+
+    function spawnSoldierFromBarracks(barracksIdx) {
+      const cells = getCells();
+      const startCell = getStartCell();
+      if (!startCell) return;
+      const startIdx = Array.from(cells).indexOf(startCell);
+      const path = findAStarPathIndices(barracksIdx, startIdx);
+      if (!path || path.length < 2) return;
+
+      const positions = path.map((idx) => {
+        const xGrid = idx % COLS;
+        const yGrid = Math.floor(idx / COLS);
+        return {
+          x: xGrid * cellWidth + cellWidth / 2,
+          y: yGrid * cellHeight + cellHeight / 2
+        };
+      });
+
+      activeSoldiers.push({
+        positions,
+        seg: 0,
+        t: 0,
+        lastTimestamp: null,
+        speed: 130
+      });
+    }
+
+    if (window.gameStarted) {
+      const cellsNow = getCells();
+      const aliveBarracks = new Set();
+      for (let i = 0; i < cellsNow.length; i++) {
+        if (!cellsNow[i].classList.contains('barracks-cell')) continue;
+        aliveBarracks.add(String(i));
+        if (!barracksSpawnTimers[i] || timestamp - barracksSpawnTimers[i] >= BARRACKS_SPAWN_MS) {
+          spawnSoldierFromBarracks(i);
+          barracksSpawnTimers[i] = timestamp;
+        }
+      }
+      Object.keys(barracksSpawnTimers).forEach((key) => {
+        if (!aliveBarracks.has(String(key))) delete barracksSpawnTimers[key];
+      });
+    }
+
     let stillActive = [];
     // --- ENEMY MOVEMENT & DRAW ---
     for (let enemy of activeEnemies) {
@@ -881,17 +1081,60 @@ function startGame() {
     }
     activeEnemies = stillActive;
 
+    // --- SOLDIER MOVEMENT & DRAW ---
+    let stillSoldiers = [];
+    for (const soldier of activeSoldiers) {
+      if (!soldier.lastTimestamp) soldier.lastTimestamp = timestamp;
+      let dt = (timestamp - soldier.lastTimestamp) / 1000;
+      if (dt > 0.15) dt = 0.15;
+      soldier.lastTimestamp = timestamp;
+
+      const p0 = soldier.positions[soldier.seg];
+      const p1 = soldier.positions[soldier.seg + 1];
+      if (!p0 || !p1) continue;
+
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const duration = dist / soldier.speed;
+      soldier.t += dt;
+      const progress = Math.min(soldier.t / duration, 1);
+      const x = p0.x + dx * progress;
+      const y = p0.y + dy * progress;
+
+      sharedEnemyCtx.save();
+      drawStarShape(sharedEnemyCtx, x, y, 5.5, 2.6);
+      sharedEnemyCtx.fillStyle = '#4b1a78';
+      sharedEnemyCtx.shadowColor = '#6f2aa8';
+      sharedEnemyCtx.shadowBlur = 8;
+      sharedEnemyCtx.fill();
+      sharedEnemyCtx.restore();
+
+      if (progress < 1) {
+        stillSoldiers.push(soldier);
+      } else if (soldier.seg < soldier.positions.length - 2) {
+        soldier.seg++;
+        soldier.t = 0;
+        soldier.lastTimestamp = null;
+        stillSoldiers.push(soldier);
+      }
+    }
+    activeSoldiers = stillSoldiers;
+
     // --- TURRET SHOOTING ---
     const cells = getCells();
     const selectedTurretIndex = window.selectedTurretIndex;
     for (let i = 0; i < cells.length; i++) {
       const cell = cells[i];
-      if (!cell.classList.contains('turret-cell')) continue;
+      const isNormalTurret = cell.classList.contains('turret-cell');
+      const isCannonTurret = cell.classList.contains('cannon-cell');
+      if (!isNormalTurret && !isCannonTurret) continue;
       // Turm-Position (Mitte der Zelle)
       const col = i % 20;
       const row = Math.floor(i / 20);
       const tx = col * cellWidth + cellWidth / 2;
       const ty = row * cellHeight + cellHeight / 2;
+      const cooldownMs = isCannonTurret ? CANNON_COOLDOWN : TURRET_COOLDOWN;
 
       // Schussradius nur fuer den ausgewaehlten Turm sichtbar machen
       if (i === selectedTurretIndex) {
@@ -953,7 +1196,7 @@ function startGame() {
       }
 
       // Cooldown prüfen
-      if (!turretCooldowns[i] || timestamp - turretCooldowns[i] > TURRET_COOLDOWN) {
+      if (!turretCooldowns[i] || timestamp - turretCooldowns[i] > cooldownMs) {
         // Nächstes Ziel im Umkreis suchen
         let nearest = null;
         let minDist = TURRET_RANGE;
@@ -972,7 +1215,9 @@ function startGame() {
             x: tx,
             y: ty,
             target: nearest,
-            hit: false
+            hit: false,
+            isCannon: isCannonTurret,
+            splashRadius: isCannonTurret ? CANNON_AOE_RADIUS * Math.max(cellWidth, cellHeight) : 0
           });
           turretCooldowns[i] = timestamp;
         }
@@ -980,6 +1225,66 @@ function startGame() {
     }
 
     // --- BULLET MOVEMENT & DRAW ---
+    function spawnHitShards(x, y, isCannon) {
+      const count = isCannon ? 18 : 12;
+      const baseSpeed = isCannon ? 6.6 : 4.9;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = baseSpeed * (0.55 + Math.random() * 0.9);
+        activeHitShards.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          size: isCannon ? 4.2 : 3.1,
+          life: 0,
+          maxLife: isCannon ? 26 : 20,
+          color: isCannon ? '#ffcf8a' : '#d8f7ff',
+          rot: Math.random() * Math.PI,
+          rotSpeed: (Math.random() - 0.5) * 0.35
+        });
+      }
+
+      activeHitBursts.push({
+        x,
+        y,
+        life: 0,
+        maxLife: isCannon ? 16 : 12,
+        maxRadius: isCannon ? 26 : 17,
+        color: isCannon ? '255, 159, 28' : '216, 247, 255'
+      });
+    }
+
+    function rewardCoinAtWorldPos(x, y) {
+      const coinsElem = document.getElementById('coins-count');
+      if (coinsElem && sharedEnemyCanvas) {
+        const rect = sharedEnemyCanvas.getBoundingClientRect();
+        const startX = x + rect.left;
+        const startY = y + rect.top;
+        const coinsRect = coinsElem.getBoundingClientRect();
+        const endX = coinsRect.left + coinsRect.width / 2;
+        const endY = coinsRect.top + coinsRect.height / 2;
+        const coin = document.createElement('span');
+        coin.textContent = '🪙';
+        coin.className = 'flying-coin';
+        coin.style.left = startX + 'px';
+        coin.style.top = startY + 'px';
+        coin.style.transform = 'translate(0,0) scale(1)';
+        document.body.appendChild(coin);
+        requestAnimationFrame(() => {
+          const dx = endX - startX;
+          const dy = endY - startY;
+          coin.style.transform = `translate(${dx}px,${dy}px) scale(0.7)`;
+          coin.style.opacity = '0.2';
+        });
+        setTimeout(() => coin.remove(), 700);
+      }
+      if (coinsElem) {
+        let coins = parseInt(coinsElem.textContent, 10) || 0;
+        coinsElem.textContent = coins + 1;
+      }
+    }
+
     let stillBullets = [];
     for (let bullet of activeBullets) {
       if (!bullet.target || bullet.target._drawX === undefined) continue;
@@ -988,11 +1293,27 @@ function startGame() {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const move = Math.min(BULLET_SPEED * (1/60), dist);
       if (dist < 14) {
-        // Enemy HP reduzieren
-        if (bullet.target.hp !== undefined) {
-          bullet.target.hp--;
-          if (bullet.target.hp <= 0) bullet.hit = true;
+        const impactX = bullet.target._drawX;
+        const impactY = bullet.target._drawY;
+        spawnHitShards(impactX, impactY, bullet.isCannon);
+        if (bullet.isCannon) {
+          // Kanone verursacht Flaechenschaden beim Einschlag
+          for (const enemy of activeEnemies) {
+            const edx = enemy._drawX - impactX;
+            const edy = enemy._drawY - impactY;
+            const eDist = Math.sqrt(edx * edx + edy * edy);
+            if (eDist <= bullet.splashRadius) {
+              enemy.hp = (enemy.hp !== undefined ? enemy.hp : 1) - 1;
+            }
+          }
+          bullet.hit = true;
         } else {
+          // Normaler Turm: Einzelschaden
+          if (bullet.target.hp !== undefined) {
+            bullet.target.hp--;
+          } else {
+            bullet.target.hp = 0;
+          }
           bullet.hit = true;
         }
       } else {
@@ -1003,57 +1324,76 @@ function startGame() {
       sharedEnemyCtx.save();
       sharedEnemyCtx.beginPath();
       sharedEnemyCtx.arc(bullet.x, bullet.y, 2.5, 0, 2 * Math.PI);
-      sharedEnemyCtx.fillStyle = '#b22222';
-      sharedEnemyCtx.shadowColor = '#b22222';
+      sharedEnemyCtx.fillStyle = bullet.isCannon ? '#ff9f1c' : '#b22222';
+      sharedEnemyCtx.shadowColor = bullet.isCannon ? '#ff9f1c' : '#b22222';
       sharedEnemyCtx.shadowBlur = 6;
       sharedEnemyCtx.fill();
       sharedEnemyCtx.restore();
       if (!bullet.hit) stillBullets.push(bullet);
       else {
-        // Enemy treffen und entfernen
-        const idx = activeEnemies.indexOf(bullet.target);
-        if (idx !== -1) {
-          // Animation: fliegende Münze
-          const coinsElem = document.getElementById('coins-count');
-          if (coinsElem && sharedEnemyCanvas) {
-            // Start: Enemy-Position (Canvas zu Viewport)
-            const rect = sharedEnemyCanvas.getBoundingClientRect();
-            const startX = bullet.target._drawX + rect.left;
-            const startY = bullet.target._drawY + rect.top;
-            // Ziel: Münzenanzeige
-            const coinsRect = coinsElem.getBoundingClientRect();
-            const endX = coinsRect.left + coinsRect.width / 2;
-            const endY = coinsRect.top + coinsRect.height / 2;
-            // Münze erzeugen
-            const coin = document.createElement('span');
-            coin.textContent = '🪙';
-            coin.className = 'flying-coin';
-            coin.style.left = startX + 'px';
-            coin.style.top = startY + 'px';
-            coin.style.transform = 'translate(0,0) scale(1)';
-            document.body.appendChild(coin);
-            // Animation triggern (nächster Frame)
-            requestAnimationFrame(() => {
-              const dx = endX - startX;
-              const dy = endY - startY;
-              coin.style.transform = `translate(${dx}px,${dy}px) scale(0.7)`;
-              coin.style.opacity = '0.2';
-            });
-            setTimeout(() => coin.remove(), 700);
-          }
-          activeEnemies.splice(idx, 1);
-          // Münzen erhöhen
-          if (coinsElem) {
-            let coins = parseInt(coinsElem.textContent, 10) || 0;
-            coinsElem.textContent = coins + 1;
-          }
+        // Gegner mit 0 HP entfernen (inkl. Splash-Damage Faelle)
+        for (let k = activeEnemies.length - 1; k >= 0; k--) {
+          const enemy = activeEnemies[k];
+          if ((enemy.hp !== undefined ? enemy.hp : 1) > 0) continue;
+          rewardCoinAtWorldPos(enemy._drawX, enemy._drawY);
+          activeEnemies.splice(k, 1);
         }
       }
     }
     activeBullets = stillBullets;
 
+    // --- IMPACT BURST ANIMATION ---
+    let stillBursts = [];
+    for (const burst of activeHitBursts) {
+      burst.life++;
+      if (burst.life > burst.maxLife) continue;
+      const t = burst.life / burst.maxLife;
+      const radius = burst.maxRadius * t;
+      const alpha = 0.95 * (1 - t);
+
+      sharedEnemyCtx.save();
+      sharedEnemyCtx.beginPath();
+      sharedEnemyCtx.arc(burst.x, burst.y, radius, 0, 2 * Math.PI);
+      sharedEnemyCtx.strokeStyle = `rgba(${burst.color}, ${alpha})`;
+      sharedEnemyCtx.lineWidth = 3 - 1.5 * t;
+      sharedEnemyCtx.shadowColor = `rgba(${burst.color}, ${Math.min(1, alpha + 0.2)})`;
+      sharedEnemyCtx.shadowBlur = 9;
+      sharedEnemyCtx.stroke();
+      sharedEnemyCtx.restore();
+
+      stillBursts.push(burst);
+    }
+    activeHitBursts = stillBursts;
+
+    // --- HIT SHARD ANIMATION ---
+    let stillShards = [];
+    for (const shard of activeHitShards) {
+      shard.life++;
+      if (shard.life > shard.maxLife) continue;
+      shard.x += shard.vx;
+      shard.y += shard.vy;
+      shard.vx *= 0.9;
+      shard.vy *= 0.9;
+      shard.rot += shard.rotSpeed;
+      const alpha = 1 - shard.life / shard.maxLife;
+
+      sharedEnemyCtx.save();
+      sharedEnemyCtx.translate(shard.x, shard.y);
+      sharedEnemyCtx.rotate(shard.rot);
+      sharedEnemyCtx.globalAlpha = alpha;
+      sharedEnemyCtx.fillStyle = shard.color;
+      sharedEnemyCtx.shadowColor = shard.color;
+      sharedEnemyCtx.shadowBlur = 4;
+      sharedEnemyCtx.fillRect(-shard.size * 0.5, -shard.size * 0.2, shard.size, shard.size * 0.4);
+      sharedEnemyCtx.restore();
+
+      stillShards.push(shard);
+    }
+    activeHitShards = stillShards;
+
     const keepForRadius = window.selectedTurretIndex !== null && window.selectedTurretIndex !== undefined;
-    if (activeEnemies.length > 0 || keepForRadius) {
+    const keepForBarracks = window.gameStarted && Array.from(getCells()).some(c => c.classList.contains('barracks-cell'));
+    if (activeEnemies.length > 0 || keepForRadius || activeHitShards.length > 0 || activeHitBursts.length > 0 || activeSoldiers.length > 0 || keepForBarracks) {
       requestAnimationFrame(enemyAnimationLoop);
     } else {
       animationRunning = false;
