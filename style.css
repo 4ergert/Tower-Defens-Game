@@ -291,6 +291,27 @@ footer {
   justify-content: center;
 }
 
+.grid-cell.cannon-cell,
+.grid-cell.barracks-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.grid-cell.cannon-cell {
+  background: #d32020 !important;
+  color: #24ff24;
+  border-color: #8f1111;
+}
+
+.grid-cell.barracks-cell {
+  background: #1e5bff !important;
+  color: #ffffff;
+  border-color: #1237a8;
+}
+
 /* Animation für Tower-Button beim Klick */
 .tower-select-btn.animate {
   animation: towerBtnClick 0.18s cubic-bezier(.68, -0.55, .27, 1.55);

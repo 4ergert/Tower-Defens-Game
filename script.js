@@ -212,10 +212,10 @@ function createGrid() {
     const style = document.createElement('style');
     style.id = 'build-area-visual-style';
     style.textContent = `
-      .grid-cell.build-allowed-cell {
-        outline: 1px solid rgb(55, 255, 20);
-        outline-offset: -2px;
-        box-shadow: 0 0 4px rgba(55, 255, 20, 0.6) inset, 0 0 11px rgba(55, 255, 20, 0.45);
+      .grid-cell.build-allowed-cell:not(.start-cell):not(.end-cell):not(.wall-cell):not(.turret-cell):not(.cannon-cell):not(.barracks-cell) {
+        background: rgba(55, 255, 20, 0.51) !important;
+        border-color: rgba(55, 255, 20, 0.95);
+        box-shadow: 0 0 10px rgba(55, 255, 20, 0.45) inset, 0 0 8px rgba(55, 255, 20, 0.3);
       }
     `;
     document.head.appendChild(style);
@@ -781,6 +781,7 @@ function startGame() {
   let sharedEnemyCanvas = null;
   let sharedEnemyCtx = null;
   let activeEnemies = [];
+  let latestEnemyAStarPath = [];
   let animationRunning = false;
 
   // Cache grid and cell sizes for performance
@@ -971,7 +972,35 @@ function startGame() {
       const startCell = getStartCell();
       if (!startCell) return;
       const startIdx = Array.from(cells).indexOf(startCell);
-      const path = findAStarPathIndices(barracksIdx, startIdx);
+      // Sterne folgen dem Gegnerpfad rueckwaerts (Ende -> Start).
+      const reversedEnemyPath = latestEnemyAStarPath.length >= 2 ? latestEnemyAStarPath.slice().reverse() : [];
+      let path = [];
+
+      if (reversedEnemyPath.length >= 2) {
+        // Bester Einstiegspunkt auf dem Gegnerpfad: danach direkt Richtung Start laufen.
+        let bestConnectorPath = null;
+        let bestJoinIdx = -1;
+        let bestScore = Infinity;
+
+        for (let i = 0; i < reversedEnemyPath.length; i++) {
+          const joinCellIdx = reversedEnemyPath[i];
+          const connectorPath = findAStarPathIndices(barracksIdx, joinCellIdx);
+          if (!connectorPath || connectorPath.length < 2) continue;
+          const score = connectorPath.length + (reversedEnemyPath.length - i);
+          if (score < bestScore) {
+            bestScore = score;
+            bestJoinIdx = i;
+            bestConnectorPath = connectorPath;
+          }
+        }
+
+        if (!bestConnectorPath || bestJoinIdx < 0) return;
+        path = bestConnectorPath.concat(reversedEnemyPath.slice(bestJoinIdx + 1));
+      } else {
+        // Fallback, falls noch kein Gegnerpfad bekannt ist.
+        path = findAStarPathIndices(barracksIdx, startIdx);
+      }
+
       if (!path || path.length < 2) return;
 
       const positions = path.map((idx) => {
@@ -1082,6 +1111,7 @@ function startGame() {
     activeEnemies = stillActive;
 
     // --- SOLDIER MOVEMENT & DRAW ---
+    const SOLDIER_HIT_RADIUS = 12;
     let stillSoldiers = [];
     for (const soldier of activeSoldiers) {
       if (!soldier.lastTimestamp) soldier.lastTimestamp = timestamp;
@@ -1102,10 +1132,30 @@ function startGame() {
       const x = p0.x + dx * progress;
       const y = p0.y + dy * progress;
 
+      let soldierHitEnemy = false;
+      for (let k = activeEnemies.length - 1; k >= 0; k--) {
+        const enemy = activeEnemies[k];
+        if (enemy._drawX === undefined || enemy._drawY === undefined) continue;
+        const hitDx = enemy._drawX - x;
+        const hitDy = enemy._drawY - y;
+        if (Math.sqrt(hitDx * hitDx + hitDy * hitDy) > SOLDIER_HIT_RADIUS) continue;
+
+        enemy.hp = (enemy.hp !== undefined ? enemy.hp : 1) - 1;
+        soldierHitEnemy = true;
+        if (enemy.hp <= 0) {
+          rewardCoinAtWorldPos(enemy._drawX, enemy._drawY);
+          activeEnemies.splice(k, 1);
+        }
+        break;
+      }
+
+      // Stern loest sich beim Treffer sofort auf.
+      if (soldierHitEnemy) continue;
+
       sharedEnemyCtx.save();
       drawStarShape(sharedEnemyCtx, x, y, 5.5, 2.6);
-      sharedEnemyCtx.fillStyle = '#4b1a78';
-      sharedEnemyCtx.shadowColor = '#6f2aa8';
+      sharedEnemyCtx.fillStyle = '#ffd700';
+      sharedEnemyCtx.shadowColor = '#ffcc33';
       sharedEnemyCtx.shadowBlur = 8;
       sharedEnemyCtx.fill();
       sharedEnemyCtx.restore();
@@ -1408,6 +1458,7 @@ function startGame() {
       console.warn('Kein gültiger Pfad für diese Welle!');
       return;
     }
+    latestEnemyAStarPath = path.slice();
     setupSharedCanvas();
     // Nach Canvas-Setup: Range korrekt setzen
     TURRET_RANGE = 4.5 * Math.max(cellWidth, cellHeight);
