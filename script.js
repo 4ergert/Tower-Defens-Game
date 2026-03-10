@@ -768,6 +768,9 @@ function startGame() {
     const CANNON_COOLDOWN = 1300; // ms
     const CANNON_AOE_RADIUS = 0.9; // in cell widths
     const BARRACKS_SPAWN_MS = 2000;
+    const SOLDIER_HIT_RADIUS = 12;
+    const SOLDIER_ATTACK_COOLDOWN = 450;
+    const ENEMY_MELEE_COOLDOWN = 650;
     let turretCooldowns = {};
     let barracksSpawnTimers = {};
 
@@ -1017,7 +1020,12 @@ function startGame() {
         seg: 0,
         t: 0,
         lastTimestamp: null,
-        speed: 130
+        speed: 130,
+        hp: 3,
+        maxHp: 3,
+        engagedEnemy: null,
+        lastAttackTimestamp: 0,
+        lastReceivedHitTimestamp: 0
       });
     }
 
@@ -1040,6 +1048,41 @@ function startGame() {
     let stillActive = [];
     // --- ENEMY MOVEMENT & DRAW ---
     for (let enemy of activeEnemies) {
+      const isEngagedByAnySoldier = activeSoldiers.some((soldier) => soldier.engagedEnemy === enemy && (soldier.hp || 0) > 0);
+      if (isEngagedByAnySoldier) {
+        const x = enemy._drawX !== undefined ? enemy._drawX : enemy.positions[enemy.seg].x;
+        const y = enemy._drawY !== undefined ? enemy._drawY : enemy.positions[enemy.seg].y;
+        const enemyStyle = getEnemyTypeStyle(enemy);
+        sharedEnemyCtx.save();
+        drawEnemyShape(sharedEnemyCtx, enemy, x, y);
+        sharedEnemyCtx.fillStyle = enemyStyle.fill;
+        sharedEnemyCtx.fill();
+        sharedEnemyCtx.strokeStyle = enemyStyle.stroke;
+        sharedEnemyCtx.lineWidth = 2;
+        sharedEnemyCtx.shadowColor = enemyStyle.shadow;
+        sharedEnemyCtx.shadowBlur = 6;
+        sharedEnemyCtx.stroke();
+        const barW = 22, barH = 4;
+        const hp = enemy.hp !== undefined ? enemy.hp : 1;
+        const maxHp = enemy.maxHp !== undefined ? enemy.maxHp : 1;
+        const percent = Math.max(0, Math.min(1, hp / maxHp));
+        sharedEnemyCtx.save();
+        sharedEnemyCtx.globalAlpha = 0.85;
+        sharedEnemyCtx.fillStyle = '#222';
+        sharedEnemyCtx.fillRect(x - barW/2, y - 17, barW, barH);
+        sharedEnemyCtx.fillStyle = percent > 0.5 ? '#4caf50' : (percent > 0.2 ? '#ffc107' : '#e74c3c');
+        sharedEnemyCtx.fillRect(x - barW/2, y - 17, barW * percent, barH);
+        sharedEnemyCtx.strokeStyle = '#fff';
+        sharedEnemyCtx.lineWidth = 0.7;
+        sharedEnemyCtx.strokeRect(x - barW/2, y - 17, barW, barH);
+        sharedEnemyCtx.restore();
+        sharedEnemyCtx.restore();
+        enemy._drawX = x;
+        enemy._drawY = y;
+        stillActive.push(enemy);
+        continue;
+      }
+
       if (!enemy.lastTimestamp) enemy.lastTimestamp = timestamp;
       let dt = (timestamp - enemy.lastTimestamp) / 1000;
       if (dt > 0.15) dt = 0.15;
@@ -1111,13 +1154,60 @@ function startGame() {
     activeEnemies = stillActive;
 
     // --- SOLDIER MOVEMENT & DRAW ---
-    const SOLDIER_HIT_RADIUS = 12;
     let stillSoldiers = [];
     for (const soldier of activeSoldiers) {
       if (!soldier.lastTimestamp) soldier.lastTimestamp = timestamp;
       let dt = (timestamp - soldier.lastTimestamp) / 1000;
       if (dt > 0.15) dt = 0.15;
       soldier.lastTimestamp = timestamp;
+
+      // Bereits im Nahkampf: beide bleiben stehen und kaempfen bis einer besiegt ist.
+      if (soldier.engagedEnemy) {
+        const enemy = soldier.engagedEnemy;
+        if (!activeEnemies.includes(enemy)) {
+          soldier.engagedEnemy = null;
+        } else {
+          const x = soldier._drawX !== undefined ? soldier._drawX : enemy._drawX;
+          const y = soldier._drawY !== undefined ? soldier._drawY : enemy._drawY;
+
+          if (!soldier.lastAttackTimestamp) soldier.lastAttackTimestamp = timestamp;
+          if (!soldier.lastReceivedHitTimestamp) soldier.lastReceivedHitTimestamp = timestamp;
+
+          if (timestamp - soldier.lastAttackTimestamp >= SOLDIER_ATTACK_COOLDOWN) {
+            enemy.hp = (enemy.hp !== undefined ? enemy.hp : 1) - 1;
+            soldier.lastAttackTimestamp = timestamp;
+          }
+
+          if ((enemy.hp !== undefined ? enemy.hp : 1) > 0 && timestamp - soldier.lastReceivedHitTimestamp >= ENEMY_MELEE_COOLDOWN) {
+            soldier.hp = (soldier.hp !== undefined ? soldier.hp : 1) - 1;
+            soldier.lastReceivedHitTimestamp = timestamp;
+          }
+
+          if ((enemy.hp !== undefined ? enemy.hp : 1) <= 0) {
+            rewardCoinAtWorldPos(enemy._drawX, enemy._drawY);
+            const idx = activeEnemies.indexOf(enemy);
+            if (idx >= 0) activeEnemies.splice(idx, 1);
+            soldier.engagedEnemy = null;
+          }
+
+          if ((soldier.hp !== undefined ? soldier.hp : 1) <= 0) {
+            continue;
+          }
+
+          sharedEnemyCtx.save();
+          drawStarShape(sharedEnemyCtx, x, y, 5.5, 2.6);
+          sharedEnemyCtx.fillStyle = '#ffd700';
+          sharedEnemyCtx.shadowColor = '#ffcc33';
+          sharedEnemyCtx.shadowBlur = 8;
+          sharedEnemyCtx.fill();
+          sharedEnemyCtx.restore();
+
+          soldier._drawX = x;
+          soldier._drawY = y;
+          stillSoldiers.push(soldier);
+          continue;
+        }
+      }
 
       const p0 = soldier.positions[soldier.seg];
       const p1 = soldier.positions[soldier.seg + 1];
@@ -1132,7 +1222,9 @@ function startGame() {
       const x = p0.x + dx * progress;
       const y = p0.y + dy * progress;
 
-      let soldierHitEnemy = false;
+      soldier._drawX = x;
+      soldier._drawY = y;
+      let enteredCombat = false;
       for (let k = activeEnemies.length - 1; k >= 0; k--) {
         const enemy = activeEnemies[k];
         if (enemy._drawX === undefined || enemy._drawY === undefined) continue;
@@ -1140,17 +1232,26 @@ function startGame() {
         const hitDy = enemy._drawY - y;
         if (Math.sqrt(hitDx * hitDx + hitDy * hitDy) > SOLDIER_HIT_RADIUS) continue;
 
-        enemy.hp = (enemy.hp !== undefined ? enemy.hp : 1) - 1;
-        soldierHitEnemy = true;
-        if (enemy.hp <= 0) {
-          rewardCoinAtWorldPos(enemy._drawX, enemy._drawY);
-          activeEnemies.splice(k, 1);
-        }
+        soldier.engagedEnemy = enemy;
+        soldier.lastAttackTimestamp = timestamp;
+        soldier.lastReceivedHitTimestamp = timestamp;
+        soldier._drawX = x;
+        soldier._drawY = y;
+        enteredCombat = true;
         break;
       }
 
-      // Stern loest sich beim Treffer sofort auf.
-      if (soldierHitEnemy) continue;
+      if (enteredCombat) {
+        sharedEnemyCtx.save();
+        drawStarShape(sharedEnemyCtx, soldier._drawX, soldier._drawY, 5.5, 2.6);
+        sharedEnemyCtx.fillStyle = '#ffd700';
+        sharedEnemyCtx.shadowColor = '#ffcc33';
+        sharedEnemyCtx.shadowBlur = 8;
+        sharedEnemyCtx.fill();
+        sharedEnemyCtx.restore();
+        stillSoldiers.push(soldier);
+        continue;
+      }
 
       sharedEnemyCtx.save();
       drawStarShape(sharedEnemyCtx, x, y, 5.5, 2.6);

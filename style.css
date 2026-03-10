@@ -30,13 +30,11 @@ main {
 }
 
 #main-content {
-  box-shadow: 0 0 24px #00fff7, 0 0 8px #ff00c8 inset;
+  box-shadow: 0 0 24px #00fff7;
   border-radius: 18px;
-  background: rgba(34, 0, 51, 0.55);
+  background: rgb(1, 79, 82);
   margin: 18px auto;
   padding: 18px;
-  /* transition: box-shadow 0.3s; */
-  /* animation: gridPulse 2.2s infinite alternate; */
 }
 
 footer {
