@@ -37,6 +37,33 @@ main {
   padding: 18px;
 }
 
+.wave-countdown-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  min-width: 92px;
+  padding: 18px 26px;
+  border: 2px solid #00fff7;
+  border-radius: 18px;
+  background: rgba(6, 16, 44, 0.82);
+  box-shadow: 0 0 24px rgba(0, 255, 247, 0.55), 0 0 10px rgba(255, 0, 200, 0.25) inset;
+  color: #f5feff;
+  font-family: 'Orbitron', Arial, sans-serif;
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-shadow: 0 0 18px #00fff7;
+  pointer-events: none;
+}
+
+.wave-countdown-overlay.hidden {
+  display: none;
+}
+
 footer {
   background: linear-gradient(90deg, #0f0c29 0%, #24243e 100%);
   color: #00fff7;
@@ -105,6 +132,14 @@ body {
   color: #1a0036;
   border-color: #00fff7;
   box-shadow: 0 0 18px #00fff7, 0 0 8px #ff00c8;
+}
+
+.grid-cell.tesla-cell {
+  background: #c864ff !important;
+  color: #fff;
+  border-color: #c864ff;
+  box-shadow: 0 0 18px #c864ff, 0 0 8px #7b00ff;
+  text-shadow: 0 0 8px #fff;
 }
 
 .grid-cell.start-cell {
@@ -208,6 +243,13 @@ body {
   box-shadow: 0 0 12px #00fff7;
 }
 
+.grid-cell.tesla-cell {
+  background: #c864ff !important;
+  color: #fff;
+  border-color: #c864ff;
+  box-shadow: 0 0 12px #c864ff;
+}
+
 .grid-cell.start-cell {
   background: #ffe066 !important;
   color: #1a0036;
@@ -284,6 +326,18 @@ footer {
   font-weight: bold;
   font-size: 1.2em;
   border: 1px solid #0e2d15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-cell.tesla-cell {
+  background: #7b00ff !important;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.2em;
+  border: 1px solid #c864ff;
+  box-shadow: 0 0 14px #c864ff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -389,6 +443,198 @@ footer {
   font-size: 20px;
   background: #dd00ff66;
   border: 1.5px solid #bfa34a;
+}
+
+.barracks-upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  pointer-events: none;
+}
+
+.barracks-upgrade-overlay.hidden {
+  display: none;
+}
+
+.barracks-upgrade-backdrop {
+  display: none;
+}
+
+.barracks-upgrade-panel {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  width: min(320px, calc(100vw - 20px));
+  max-height: min(72vh, 520px);
+  overflow: auto;
+  border-radius: 12px;
+  padding: 12px;
+  border: 2px solid #4aa5ff;
+  background: linear-gradient(165deg, #0d1d4a 0%, #152b6b 58%, #1a3e96 100%);
+  box-shadow: 0 0 16px #6cc6ff, 0 0 6px #3f66c9 inset;
+  color: #e8f7ff;
+  pointer-events: auto;
+}
+
+.barracks-upgrade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.barracks-upgrade-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: #d4f1ff;
+}
+
+.barracks-upgrade-close {
+  border: 1px solid #84d8ff;
+  border-radius: 8px;
+  background: #123f86;
+  color: #e6f9ff;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 9px;
+}
+
+.barracks-upgrade-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  padding: 8px 9px;
+  border-radius: 9px;
+  border: 1px solid #6abfff;
+  background: rgba(0, 20, 54, 0.45);
+}
+
+.barracks-upgrade-name {
+  font-weight: 600;
+  color: #f1fbff;
+}
+
+.barracks-upgrade-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.86rem;
+  color: #bbebff;
+}
+
+.barracks-upgrade-btn {
+  border: 1px solid #84d8ff;
+  border-radius: 8px;
+  background: #0c8fd9;
+  color: #ffffff;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.barracks-upgrade-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tesla-upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 121;
+  pointer-events: none;
+}
+
+.tesla-upgrade-overlay.hidden {
+  display: none;
+}
+
+.tesla-upgrade-backdrop {
+  display: none;
+}
+
+.tesla-upgrade-panel {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  width: min(320px, calc(100vw - 20px));
+  max-height: min(72vh, 520px);
+  overflow: auto;
+  border-radius: 12px;
+  padding: 12px;
+  border: 2px solid #c864ff;
+  background: linear-gradient(165deg, #2a0f45 0%, #3e1768 58%, #5e239b 100%);
+  box-shadow: 0 0 16px #c864ff, 0 0 6px #7b00ff inset;
+  color: #f6ebff;
+  pointer-events: auto;
+}
+
+.tesla-upgrade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tesla-upgrade-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: #f0dcff;
+}
+
+.tesla-upgrade-close {
+  border: 1px solid #e5b8ff;
+  border-radius: 8px;
+  background: #5a1f8f;
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 9px;
+}
+
+.tesla-upgrade-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  padding: 8px 9px;
+  border-radius: 9px;
+  border: 1px solid #d48dff;
+  background: rgba(44, 7, 73, 0.45);
+}
+
+.tesla-upgrade-name {
+  font-weight: 600;
+  color: #f8eeff;
+}
+
+.tesla-upgrade-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.86rem;
+  color: #efceff;
+}
+
+.tesla-upgrade-btn {
+  border: 1px solid #e5b8ff;
+  border-radius: 8px;
+  background: #9b20ff;
+  color: #ffffff;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.tesla-upgrade-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 #heart-row {

@@ -6,6 +6,200 @@ const getGrid = () => document.getElementById('main-grid');
 const getMainContent = () => document.getElementById('main-content');
 const getStartCell = () => document.querySelector('.start-cell');
 const getEndCell = () => document.querySelector('.end-cell');
+const TESLA_BASE_RANGE_CELLS = 3.5;
+const TESLA_BASE_CHAIN_CELLS = 2.2;
+const TESLA_BASE_COOLDOWN_MS = 800;
+const BUILDABLE_TOWER_TYPES = ['wall', 'turret', 'cannon', 'barracks', 'tesla'];
+const STRUCTURE_CELL_CLASSES = ['wall-cell', 'turret-cell', 'cannon-cell', 'barracks-cell', 'tesla-cell'];
+const RANGE_TOWER_CELL_CLASSES = ['turret-cell', 'cannon-cell', 'tesla-cell'];
+const BUILD_ZONE_SOURCE_CLASSES = ['turret-cell', 'cannon-cell', 'barracks-cell', 'tesla-cell'];
+
+const BUILD_COSTS = {
+  wall: 4,
+  turret: 12,
+  cannon: 20,
+  barracks: 18,
+  tesla: 24
+};
+
+const getBuildCost = (towerType) => BUILD_COSTS[towerType] || 0;
+
+function hasAnyClass(element, classNames) {
+  return classNames.some((className) => element.classList.contains(className));
+}
+
+function hasBlockingStructure(cell, allowedClasses = []) {
+  return STRUCTURE_CELL_CLASSES.some(
+    (className) => !allowedClasses.includes(className) && cell.classList.contains(className)
+  );
+}
+
+function createDefaultBarracksUpgrades() {
+  return {
+    movementSpeed: 0,
+    spawnSpeed: 0,
+    strength: 0,
+    armor: 0
+  };
+}
+
+function createDefaultTeslaUpgrades() {
+  return {
+    range: 0,
+    strength: 0,
+    speed: 0
+  };
+}
+
+function getBarracksUpgradeState(cellIdx) {
+  if (!window.barracksUpgradesByCell) {
+    window.barracksUpgradesByCell = {};
+  }
+  const key = String(cellIdx ?? -1);
+  if (!window.barracksUpgradesByCell[key]) {
+    window.barracksUpgradesByCell[key] = createDefaultBarracksUpgrades();
+  }
+  return window.barracksUpgradesByCell[key];
+}
+
+function getTeslaUpgradeState(cellIdx) {
+  if (!window.teslaUpgradesByCell) {
+    window.teslaUpgradesByCell = {};
+  }
+  const key = String(cellIdx ?? -1);
+  if (!window.teslaUpgradesByCell[key]) {
+    window.teslaUpgradesByCell[key] = createDefaultTeslaUpgrades();
+  }
+  return window.teslaUpgradesByCell[key];
+}
+
+function getCoinsValue() {
+  const coinsElem = document.getElementById('coins-count');
+  if (!coinsElem) return 0;
+  return parseInt(coinsElem.textContent, 10) || 0;
+}
+
+function setCoinsValue(value) {
+  const coinsElem = document.getElementById('coins-count');
+  if (!coinsElem) return;
+  coinsElem.textContent = String(Math.max(0, Math.floor(value)));
+  window.updateTowerMenuCostLabels?.();
+}
+
+function spendCoins(amount) {
+  const coins = getCoinsValue();
+  if (coins < amount) return false;
+  setCoinsValue(coins - amount);
+  return true;
+}
+
+function getBarracksUpgradeCost(statKey, level) {
+  const baseCosts = {
+    movementSpeed: 10,
+    spawnSpeed: 14,
+    strength: 16,
+    armor: 12
+  };
+  const base = baseCosts[statKey] || 10;
+  return Math.floor(base + level * (base * 0.7 + 4));
+}
+
+function getTeslaUpgradeCost(statKey, level) {
+  const baseCosts = {
+    range: 15,
+    strength: 20,
+    speed: 17
+  };
+  const base = baseCosts[statKey] || 15;
+  return Math.floor(base + level * (base * 0.75 + 4));
+}
+
+function getBarracksRuntimeStats(cellIdx) {
+  const upgrades = getBarracksUpgradeState(cellIdx);
+  return {
+    movementSpeed: 130 * (1 + upgrades.movementSpeed * 0.12),
+    spawnIntervalMs: Math.max(450, 2000 * (1 - upgrades.spawnSpeed * 0.1)),
+    strengthDamage: 1 + upgrades.strength * 0.45,
+    armorReduction: Math.min(0.75, upgrades.armor * 0.1),
+    maxHp: 3 + upgrades.armor * 0.35
+  };
+}
+
+function getTeslaRuntimeStats(cellIdx, baseRange = 0, baseChainRange = 0, baseCooldownMs = TESLA_BASE_COOLDOWN_MS) {
+  const upgrades = getTeslaUpgradeState(cellIdx);
+  return {
+    range: baseRange * (1 + upgrades.range * 0.12),
+    chainRange: baseChainRange * (1 + upgrades.range * 0.08),
+    damage: 1 + upgrades.strength * 0.6,
+    cooldownMs: Math.max(180, baseCooldownMs * (1 - upgrades.speed * 0.08))
+  };
+}
+
+function drawAnimatedPathLine(path) {
+  const grid = document.getElementById('main-grid');
+  if (!grid) return;
+
+  let canvas = document.getElementById('astar-path-canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'astar-path-canvas';
+    canvas.style.position = 'absolute';
+    canvas.style.left = '0';
+    canvas.style.top = '0';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = 25;
+    grid.appendChild(canvas);
+  }
+
+  canvas.width = grid.offsetWidth;
+  canvas.height = grid.offsetHeight;
+  const ctx = canvas.getContext('2d');
+
+  const cellWidth = grid.offsetWidth / COLS;
+  const cellHeight = grid.offsetHeight / ROWS;
+  const points = path.map((idx) => ({
+    x: (idx % COLS) * cellWidth + cellWidth / 2,
+    y: Math.floor(idx / COLS) * cellHeight + cellHeight / 2
+  }));
+
+  let progress = 0;
+  const speed = 0.015;
+  function drawDot(x, y) {
+    ctx.beginPath();
+    ctx.arc(x, y, 2.2, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.fillStyle = '#00fff7';
+    ctx.shadowColor = '#00fff7';
+    ctx.shadowBlur = 10;
+    const maxIdx = Math.floor(progress * (points.length - 1));
+    for (let i = 1; i <= maxIdx && i < points.length; i++) {
+      drawDot(points[i].x, points[i].y);
+    }
+    ctx.restore();
+
+    progress += speed;
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+      return;
+    }
+
+    ctx.save();
+    ctx.fillStyle = '#00fff7';
+    ctx.shadowColor = '#00fff7';
+    ctx.shadowBlur = 10;
+    for (let i = 0; i < points.length; i++) {
+      drawDot(points[i].x, points[i].y);
+    }
+    ctx.restore();
+  }
+
+  animate();
+}
 
 // A*-Algorithmus für kürzesten Pfad mit Visualisierung
 async function aStarPath() {
@@ -72,68 +266,6 @@ async function aStarPath() {
         // Animated line for A* path
         drawAnimatedPathLine(path);
         return;
-    // Draws an animated line for the A* path
-    function drawAnimatedPathLine(path) {
-      const grid = document.getElementById('main-grid');
-      if (!grid) return;
-      let canvas = document.getElementById('astar-path-canvas');
-      if (!canvas) {
-        canvas = document.createElement('canvas');
-        canvas.id = 'astar-path-canvas';
-        canvas.style.position = 'absolute';
-        canvas.style.left = '0';
-        canvas.style.top = '0';
-        canvas.style.pointerEvents = 'none';
-        canvas.style.zIndex = 25;
-        grid.appendChild(canvas);
-      }
-      canvas.width = grid.offsetWidth;
-      canvas.height = grid.offsetHeight;
-      const ctx = canvas.getContext('2d');
-      // Get cell centers
-      const cellWidth = grid.offsetWidth / COLS;
-      const cellHeight = grid.offsetHeight / ROWS;
-      const points = path.map(idx => {
-        const x = (idx % COLS) * cellWidth + cellWidth / 2;
-        const y = Math.floor(idx / COLS) * cellHeight + cellHeight / 2;
-        return { x, y };
-      });
-      // Animation
-      let progress = 0;
-      const speed = 0.015; // Adjust for faster/slower animation
-      function drawDot(x, y) {
-        ctx.beginPath();
-        ctx.arc(x, y, 2.2, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-      function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.fillStyle = '#00fff7';
-        ctx.shadowColor = '#00fff7';
-        ctx.shadowBlur = 10;
-        let maxIdx = Math.floor(progress * (points.length - 1));
-        for (let i = 1; i <= maxIdx && i < points.length; i++) {
-          drawDot(points[i].x, points[i].y);
-        }
-        ctx.restore();
-        progress += speed;
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          // Keep all points visible after animation
-          ctx.save();
-          ctx.fillStyle = '#00fff7';
-          ctx.shadowColor = '#00fff7';
-          ctx.shadowBlur = 10;
-          for (let i = 0; i < points.length; i++) {
-            drawDot(points[i].x, points[i].y);
-          }
-          ctx.restore();
-        }
-      }
-      animate();
-    }
       }
       // Aus openSet entfernen, zu closedSet hinzufügen
       openSet.splice(openSet.indexOf(current), 1);
@@ -179,6 +311,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function createGrid() {
   const mainContent = document.getElementById('main-content');
+  getBarracksUpgradeState(-1);
+  getTeslaUpgradeState(-1);
 
   // --- Grid ---
   const grid = document.createElement('div');
@@ -191,14 +325,20 @@ function createGrid() {
     grid.appendChild(cell);
   }
 
+  const waveCountdown = document.createElement('div');
+  waveCountdown.id = 'wave-countdown-overlay';
+  waveCountdown.className = 'wave-countdown-overlay hidden';
+  grid.appendChild(waveCountdown);
+
   // --- Tower Selection Menu ---
   const towerMenu = document.createElement('div');
   towerMenu.id = 'tower-menu';
   towerMenu.innerHTML = `
-    <button class="tower-select-btn" data-tower="wall">Mauer</button>
-    <button class="tower-select-btn" data-tower="turret">Turm</button>
-    <button class="tower-select-btn" data-tower="cannon">Kanone</button>
-    <button class="tower-select-btn" data-tower="barracks">Kaserne</button>
+    <button class="tower-select-btn" data-tower="wall" data-label="Mauer">Mauer</button>
+    <button class="tower-select-btn" data-tower="turret" data-label="Turm">Turm</button>
+    <button class="tower-select-btn" data-tower="cannon" data-label="Kanone">Kanone</button>
+    <button class="tower-select-btn" data-tower="barracks" data-label="Kaserne">Kaserne</button>
+    <button class="tower-select-btn" data-tower="tesla" data-label="Tesla">Tesla</button>
   `;
 
   // Set order for flex layout: grid left, menu right
@@ -212,7 +352,7 @@ function createGrid() {
     const style = document.createElement('style');
     style.id = 'build-area-visual-style';
     style.textContent = `
-      .grid-cell.build-allowed-cell:not(.start-cell):not(.end-cell):not(.wall-cell):not(.turret-cell):not(.cannon-cell):not(.barracks-cell) {
+      .grid-cell.build-allowed-cell:not(.start-cell):not(.end-cell):not(.wall-cell):not(.turret-cell):not(.cannon-cell):not(.barracks-cell):not(.tesla-cell) {
         background: rgba(55, 255, 20, 0.51) !important;
         border-color: rgba(55, 255, 20, 0.95);
         box-shadow: 0 0 10px rgba(55, 255, 20, 0.45) inset, 0 0 8px rgba(55, 255, 20, 0.3);
@@ -268,7 +408,7 @@ function createGrid() {
     const selectedIdx = window.selectedTurretIndex;
     const cellsNow = getCells();
     const selectedCell = (selectedIdx === null || selectedIdx === undefined) ? null : cellsNow[selectedIdx];
-    if (!selectedCell || (!selectedCell.classList.contains('turret-cell') && !selectedCell.classList.contains('cannon-cell'))) {
+    if (!selectedCell || !hasAnyClass(selectedCell, RANGE_TOWER_CELL_CLASSES)) {
       preStartRadiusAnimating = false;
       removePreStartRadiusCanvas();
       return;
@@ -278,7 +418,17 @@ function createGrid() {
     const row = Math.floor(selectedIdx / COLS);
     const cellW = grid.offsetWidth / COLS;
     const cellH = grid.offsetHeight / ROWS;
-    const range = 4.5 * Math.max(cellW, cellH);
+    const isTeslaSelected = selectedCell.classList.contains('tesla-cell');
+    const baseRange = (isTeslaSelected ? TESLA_BASE_RANGE_CELLS : 4.5) * Math.max(cellW, cellH);
+    const teslaPreviewStats = isTeslaSelected
+      ? getTeslaRuntimeStats(
+        selectedIdx,
+        baseRange,
+        baseRange * (TESLA_BASE_CHAIN_CELLS / TESLA_BASE_RANGE_CELLS),
+        TESLA_BASE_COOLDOWN_MS
+      )
+      : null;
+    const range = teslaPreviewStats ? teslaPreviewStats.range : baseRange;
     const tx = col * cellW + cellW / 2;
     const ty = row * cellH + cellH / 2;
     const pulse = 0.5 + 0.5 * Math.sin(timestamp * 0.005 + selectedIdx);
@@ -373,7 +523,7 @@ function createGrid() {
 
   function refreshBuildAreaVisualization(forceShow = false) {
     if (forceShow) window._showBuildAreaHint = true;
-    const showByTool = window.selectedTowerType === 'wall' || window.selectedTowerType === 'turret' || window.selectedTowerType === 'cannon' || window.selectedTowerType === 'barracks';
+    const showByTool = BUILDABLE_TOWER_TYPES.includes(window.selectedTowerType);
     const shouldShow = showByTool || window._showBuildAreaHint;
     if (!shouldShow) {
       clearBuildAreaVisualization();
@@ -391,8 +541,368 @@ function createGrid() {
     });
   }
 
+  function getCellByIndex(cellIdx) {
+    if (cellIdx === null || cellIdx === undefined) return null;
+    const cellsNow = getCells();
+    return cellsNow[cellIdx] || null;
+  }
+
+  function placeUpgradePanelNearCell(menuId, panelSelector, cellIdx) {
+    const menu = document.getElementById(menuId);
+    if (!menu || menu.classList.contains('hidden')) return;
+    const panel = menu.querySelector(panelSelector);
+    const cell = getCellByIndex(cellIdx);
+    if (!(panel instanceof HTMLElement) || !cell) return;
+
+    const margin = 12;
+    const minViewportPadding = 8;
+    const cellRect = cell.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+
+    let left = cellRect.right + margin;
+    let top = cellRect.top + (cellRect.height - panelRect.height) / 2;
+
+    if (left + panelRect.width > window.innerWidth - minViewportPadding) {
+      left = cellRect.left - panelRect.width - margin;
+    }
+    if (left < minViewportPadding) {
+      left = Math.max(minViewportPadding, Math.min(window.innerWidth - panelRect.width - minViewportPadding, cellRect.right + margin));
+    }
+
+    if (top + panelRect.height > window.innerHeight - minViewportPadding) {
+      top = window.innerHeight - panelRect.height - minViewportPadding;
+    }
+    if (top < minViewportPadding) {
+      top = minViewportPadding;
+    }
+
+    const towerMenu = document.getElementById('tower-menu');
+    if (towerMenu) {
+      const towerMenuRect = towerMenu.getBoundingClientRect();
+      const overlapsTowerMenu = !(
+        left + panelRect.width <= towerMenuRect.left ||
+        left >= towerMenuRect.right ||
+        top + panelRect.height <= towerMenuRect.top ||
+        top >= towerMenuRect.bottom
+      );
+
+      if (overlapsTowerMenu) {
+        const leftCandidate = cellRect.left - panelRect.width - margin;
+        if (leftCandidate >= minViewportPadding) {
+          left = leftCandidate;
+        } else {
+          const aboveCandidate = cellRect.top - panelRect.height - margin;
+          const belowCandidate = cellRect.bottom + margin;
+          if (aboveCandidate >= minViewportPadding) {
+            top = aboveCandidate;
+          } else {
+            top = Math.min(
+              belowCandidate,
+              window.innerHeight - panelRect.height - minViewportPadding
+            );
+          }
+        }
+      }
+    }
+
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(top)}px`;
+  }
+
+  function closeUpgradeMenus() {
+    ['barracks-upgrade-overlay', 'tesla-upgrade-overlay'].forEach((menuId) => {
+      document.getElementById(menuId)?.classList.add('hidden');
+    });
+  }
+
+  function markUpgradeMenuJustOpened() {
+    window._upgradeMenuJustOpenedUntil = Date.now() + 120;
+  }
+
+  function refreshOpenUpgradeMenuPositions() {
+    if (window.selectedBarracksIndex !== undefined) {
+      placeUpgradePanelNearCell('barracks-upgrade-overlay', '.barracks-upgrade-panel', window.selectedBarracksIndex);
+    }
+    if (window.selectedTeslaIndex !== undefined) {
+      placeUpgradePanelNearCell('tesla-upgrade-overlay', '.tesla-upgrade-panel', window.selectedTeslaIndex);
+    }
+  }
+
+  if (!window._upgradeMenuPositionHandlersBound) {
+    window._upgradeMenuPositionHandlersBound = true;
+    window.addEventListener('resize', refreshOpenUpgradeMenuPositions);
+    window.addEventListener('scroll', refreshOpenUpgradeMenuPositions, true);
+  }
+
+  if (!window._upgradeMenuOutsideClickBound) {
+    window._upgradeMenuOutsideClickBound = true;
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+
+      if ((window._upgradeMenuJustOpenedUntil || 0) > Date.now()) {
+        return;
+      }
+
+      const barracksMenu = document.getElementById('barracks-upgrade-overlay');
+      const teslaMenu = document.getElementById('tesla-upgrade-overlay');
+      const barracksOpen = !!barracksMenu && !barracksMenu.classList.contains('hidden');
+      const teslaOpen = !!teslaMenu && !teslaMenu.classList.contains('hidden');
+      if (!barracksOpen && !teslaOpen) return;
+
+      if (target.closest('.barracks-upgrade-panel') || target.closest('.tesla-upgrade-panel')) {
+        return;
+      }
+
+      // Klick auf die Turmzelle selbst darf das frisch geoeffnete Menu nicht sofort wieder schliessen.
+      if (target.closest('.barracks-cell') || target.closest('.tesla-cell')) {
+        return;
+      }
+
+      closeUpgradeMenus();
+    });
+  }
+
+  function ensureBarracksUpgradeMenu() {
+    let menu = document.getElementById('barracks-upgrade-overlay');
+    if (menu) return menu;
+
+    menu = document.createElement('div');
+    menu.id = 'barracks-upgrade-overlay';
+    menu.className = 'barracks-upgrade-overlay hidden';
+    menu.innerHTML = `
+      <div class="barracks-upgrade-backdrop" data-close="1"></div>
+      <div class="barracks-upgrade-panel" role="dialog" aria-modal="true" aria-label="Kasernen-Upgrades">
+        <div class="barracks-upgrade-header">
+          <h3 id="barracks-upgrade-title">Kaserne Upgrades</h3>
+          <button type="button" class="barracks-upgrade-close" data-close="1">X</button>
+        </div>
+        <div class="barracks-upgrade-row" data-stat="movementSpeed">
+          <div class="barracks-upgrade-name">Bewegungsgeschwindigkeit</div>
+          <div class="barracks-upgrade-meta">
+            <span class="barracks-level"></span>
+            <span class="barracks-cost"></span>
+          </div>
+          <button type="button" class="barracks-upgrade-btn" data-upgrade="movementSpeed">Upgrade</button>
+        </div>
+        <div class="barracks-upgrade-row" data-stat="spawnSpeed">
+          <div class="barracks-upgrade-name">Erzeugungsgeschwindigkeit</div>
+          <div class="barracks-upgrade-meta">
+            <span class="barracks-level"></span>
+            <span class="barracks-cost"></span>
+          </div>
+          <button type="button" class="barracks-upgrade-btn" data-upgrade="spawnSpeed">Upgrade</button>
+        </div>
+        <div class="barracks-upgrade-row" data-stat="strength">
+          <div class="barracks-upgrade-name">Staerke</div>
+          <div class="barracks-upgrade-meta">
+            <span class="barracks-level"></span>
+            <span class="barracks-cost"></span>
+          </div>
+          <button type="button" class="barracks-upgrade-btn" data-upgrade="strength">Upgrade</button>
+        </div>
+        <div class="barracks-upgrade-row" data-stat="armor">
+          <div class="barracks-upgrade-name">Panzerung</div>
+          <div class="barracks-upgrade-meta">
+            <span class="barracks-level"></span>
+            <span class="barracks-cost"></span>
+          </div>
+          <button type="button" class="barracks-upgrade-btn" data-upgrade="armor">Upgrade</button>
+        </div>
+      </div>
+    `;
+
+    menu.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (target.dataset.close === '1') {
+        menu.classList.add('hidden');
+        return;
+      }
+
+      const statKey = target.dataset.upgrade;
+      if (!statKey) return;
+
+      const upgrades = getBarracksUpgradeState(window.selectedBarracksIndex);
+      const currentLevel = upgrades[statKey] || 0;
+      if (currentLevel >= 10) return;
+
+      const cost = getBarracksUpgradeCost(statKey, currentLevel);
+      if (!spendCoins(cost)) return;
+
+      upgrades[statKey] = currentLevel + 1;
+      renderBarracksUpgradeMenu(window.selectedBarracksIndex);
+    });
+
+    document.body.appendChild(menu);
+    return menu;
+  }
+
+  function renderBarracksUpgradeMenu(cellIdx) {
+    const menu = ensureBarracksUpgradeMenu();
+    const upgrades = getBarracksUpgradeState(cellIdx);
+    const coins = getCoinsValue();
+
+    const title = menu.querySelector('#barracks-upgrade-title');
+    if (title) title.textContent = `Kaserne #${cellIdx + 1} Upgrades`;
+
+    const rows = menu.querySelectorAll('.barracks-upgrade-row');
+    rows.forEach((row) => {
+      const statKey = row.getAttribute('data-stat');
+      if (!statKey) return;
+      const level = upgrades[statKey] || 0;
+      const levelElem = row.querySelector('.barracks-level');
+      const costElem = row.querySelector('.barracks-cost');
+      const btn = row.querySelector('.barracks-upgrade-btn');
+      const maxed = level >= 10;
+      const cost = getBarracksUpgradeCost(statKey, level);
+
+      if (levelElem) levelElem.textContent = `Lv ${level}/10`;
+      if (costElem) costElem.textContent = maxed ? 'MAX' : `${cost} Coins`;
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = maxed || coins < cost;
+      }
+    });
+  }
+
+  function openBarracksUpgradeMenu(cellIdx) {
+    window.selectedBarracksIndex = cellIdx;
+    renderBarracksUpgradeMenu(cellIdx);
+    const menu = ensureBarracksUpgradeMenu();
+    menu.classList.remove('hidden');
+    markUpgradeMenuJustOpened();
+    placeUpgradePanelNearCell('barracks-upgrade-overlay', '.barracks-upgrade-panel', cellIdx);
+  }
+
+  function ensureTeslaUpgradeMenu() {
+    let menu = document.getElementById('tesla-upgrade-overlay');
+    if (menu) return menu;
+
+    menu = document.createElement('div');
+    menu.id = 'tesla-upgrade-overlay';
+    menu.className = 'tesla-upgrade-overlay hidden';
+    menu.innerHTML = `
+      <div class="tesla-upgrade-backdrop" data-close="1"></div>
+      <div class="tesla-upgrade-panel" role="dialog" aria-modal="true" aria-label="Tesla-Upgrades">
+        <div class="tesla-upgrade-header">
+          <h3 id="tesla-upgrade-title">Tesla Upgrades</h3>
+          <button type="button" class="tesla-upgrade-close" data-close="1">X</button>
+        </div>
+        <div class="tesla-upgrade-row" data-stat="range">
+          <div class="tesla-upgrade-name">Reichweite</div>
+          <div class="tesla-upgrade-meta">
+            <span class="tesla-level"></span>
+            <span class="tesla-cost"></span>
+          </div>
+          <button type="button" class="tesla-upgrade-btn" data-upgrade="range">Upgrade</button>
+        </div>
+        <div class="tesla-upgrade-row" data-stat="strength">
+          <div class="tesla-upgrade-name">Staerke</div>
+          <div class="tesla-upgrade-meta">
+            <span class="tesla-level"></span>
+            <span class="tesla-cost"></span>
+          </div>
+          <button type="button" class="tesla-upgrade-btn" data-upgrade="strength">Upgrade</button>
+        </div>
+        <div class="tesla-upgrade-row" data-stat="speed">
+          <div class="tesla-upgrade-name">Geschwindigkeit</div>
+          <div class="tesla-upgrade-meta">
+            <span class="tesla-level"></span>
+            <span class="tesla-cost"></span>
+          </div>
+          <button type="button" class="tesla-upgrade-btn" data-upgrade="speed">Upgrade</button>
+        </div>
+      </div>
+    `;
+
+    menu.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (target.dataset.close === '1') {
+        menu.classList.add('hidden');
+        return;
+      }
+
+      const statKey = target.dataset.upgrade;
+      if (!statKey) return;
+
+      const upgrades = getTeslaUpgradeState(window.selectedTeslaIndex);
+      const currentLevel = upgrades[statKey] || 0;
+      if (currentLevel >= 10) return;
+
+      const cost = getTeslaUpgradeCost(statKey, currentLevel);
+      if (!spendCoins(cost)) return;
+
+      upgrades[statKey] = currentLevel + 1;
+      renderTeslaUpgradeMenu(window.selectedTeslaIndex);
+      window.selectedTurretIndex = window.selectedTeslaIndex;
+      window.refreshTurretRadiusDisplay?.();
+    });
+
+    document.body.appendChild(menu);
+    return menu;
+  }
+
+  function renderTeslaUpgradeMenu(cellIdx) {
+    const menu = ensureTeslaUpgradeMenu();
+    const upgrades = getTeslaUpgradeState(cellIdx);
+    const coins = getCoinsValue();
+
+    const title = menu.querySelector('#tesla-upgrade-title');
+    if (title) title.textContent = `Tesla #${cellIdx + 1} Upgrades`;
+
+    const rows = menu.querySelectorAll('.tesla-upgrade-row');
+    rows.forEach((row) => {
+      const statKey = row.getAttribute('data-stat');
+      if (!statKey) return;
+      const level = upgrades[statKey] || 0;
+      const levelElem = row.querySelector('.tesla-level');
+      const costElem = row.querySelector('.tesla-cost');
+      const btn = row.querySelector('.tesla-upgrade-btn');
+      const maxed = level >= 10;
+      const cost = getTeslaUpgradeCost(statKey, level);
+
+      if (levelElem) levelElem.textContent = `Lv ${level}/10`;
+      if (costElem) costElem.textContent = maxed ? 'MAX' : `${cost} Coins`;
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = maxed || coins < cost;
+      }
+    });
+  }
+
+  function openTeslaUpgradeMenu(cellIdx) {
+    window.selectedTeslaIndex = cellIdx;
+    window.selectedTurretIndex = cellIdx;
+    renderTeslaUpgradeMenu(cellIdx);
+    const menu = ensureTeslaUpgradeMenu();
+    menu.classList.remove('hidden');
+    markUpgradeMenuJustOpened();
+    placeUpgradePanelNearCell('tesla-upgrade-overlay', '.tesla-upgrade-panel', cellIdx);
+    window.refreshTurretRadiusDisplay?.();
+  }
+
+  function updateTowerMenuCostLabels() {
+    const coins = getCoinsValue();
+    const buttons = towerMenu.querySelectorAll('.tower-select-btn');
+    buttons.forEach((btn) => {
+      const towerType = btn.getAttribute('data-tower') || '';
+      const label = btn.getAttribute('data-label') || btn.textContent || '';
+      const cost = getBuildCost(towerType);
+      btn.textContent = `${label} (${cost})`;
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = coins < cost;
+      }
+    });
+  }
+
+  window.updateTowerMenuCostLabels = updateTowerMenuCostLabels;
+  updateTowerMenuCostLabels();
+
   towerMenu.addEventListener('click', (e) => {
     if (e.target.matches('.tower-select-btn')) {
+      closeUpgradeMenus();
       document.querySelectorAll('.tower-select-btn').forEach(btn => btn.classList.remove('selected'));
       e.target.classList.add('selected');
       window.selectedTowerType = e.target.dataset.tower;
@@ -428,7 +938,7 @@ function createGrid() {
     for (let i = 0; i < allCells.length; i++) {
       const c = allCells[i];
       // Nur Turm-Bauten erweitern die Bauzone, Mauern nicht
-      if (!c.classList.contains('turret-cell') && !c.classList.contains('cannon-cell') && !c.classList.contains('barracks-cell')) continue;
+      if (!hasAnyClass(c, BUILD_ZONE_SOURCE_CLASSES)) continue;
       const bx = i % COLS;
       const by = Math.floor(i / COLS);
       const dx = Math.abs(cellX - bx);
@@ -451,6 +961,16 @@ function createGrid() {
         return;
       }
       if (cell.classList.contains('start-cell')) return;
+      if (cell.classList.contains('barracks-cell')) {
+        openBarracksUpgradeMenu(cellIdx);
+        refreshBuildAreaVisualization();
+        return;
+      }
+      if (cell.classList.contains('tesla-cell')) {
+        openTeslaUpgradeMenu(cellIdx);
+        refreshBuildAreaVisualization();
+        return;
+      }
       if (window.selectedTowerType === 'wall') {
         if (!isBuildAllowed(cellIdx)) return;
         // Bereits vorhandene Mauer bei erneutem Klick nicht loeschen
@@ -461,13 +981,14 @@ function createGrid() {
           return;
         }
         // Bebaute Zellen nicht mit Mauer ueberschreiben
-        if (cell.classList.contains('turret-cell') || cell.classList.contains('cannon-cell') || cell.classList.contains('barracks-cell')) {
+        if (hasBlockingStructure(cell, ['wall-cell'])) {
           window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
           return;
         }
         if (window.selectedTurretIndex === cellIdx) window.selectedTurretIndex = null;
+        if (!spendCoins(getBuildCost('wall'))) return;
         cell.classList.add('wall-cell');
         cell.textContent = 'W';
         window.refreshTurretRadiusDisplay?.();
@@ -484,12 +1005,13 @@ function createGrid() {
           return;
         }
         // Bebaute Zellen nicht mit Turm ueberschreiben
-        if (cell.classList.contains('wall-cell') || cell.classList.contains('cannon-cell') || cell.classList.contains('barracks-cell')) {
+        if (hasBlockingStructure(cell, ['turret-cell'])) {
           window.selectedTurretIndex = null;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
           return;
         }
+        if (!spendCoins(getBuildCost('turret'))) return;
         cell.classList.add('turret-cell');
         cell.textContent = 'X';
         window.selectedTurretIndex = cellIdx;
@@ -507,12 +1029,13 @@ function createGrid() {
           return;
         }
         // Bebaute Zellen nicht mit Kanone ueberschreiben
-        if (cell.classList.contains('wall-cell') || cell.classList.contains('turret-cell') || cell.classList.contains('barracks-cell')) {
+        if (hasBlockingStructure(cell, ['cannon-cell'])) {
           window.selectedTurretIndex = null;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
           return;
         }
+        if (!spendCoins(getBuildCost('cannon'))) return;
         cell.classList.add('cannon-cell');
         cell.textContent = 'C';
         window.selectedTurretIndex = cellIdx;
@@ -528,20 +1051,43 @@ function createGrid() {
           refreshBuildAreaVisualization();
           return;
         }
-        if (cell.classList.contains('wall-cell') || cell.classList.contains('turret-cell') || cell.classList.contains('cannon-cell')) {
+        if (hasBlockingStructure(cell, ['barracks-cell'])) {
           window.selectedTurretIndex = null;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
           return;
         }
+        if (!spendCoins(getBuildCost('barracks'))) return;
         cell.classList.add('barracks-cell');
         cell.textContent = 'B';
         window.selectedTurretIndex = null;
         window.refreshTurretRadiusDisplay?.();
         refreshBuildAreaVisualization();
+      }
+      // Teslaturm
+      else if (window.selectedTowerType === 'tesla') {
+        if (!isBuildAllowed(cellIdx)) return;
+        if (cell.classList.contains('tesla-cell')) {
+          window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
+        if (hasBlockingStructure(cell, ['tesla-cell'])) {
+          window.selectedTurretIndex = null;
+          window.refreshTurretRadiusDisplay?.();
+          refreshBuildAreaVisualization();
+          return;
+        }
+        if (!spendCoins(getBuildCost('tesla'))) return;
+        cell.classList.add('tesla-cell');
+        cell.textContent = 'T';
+        window.selectedTurretIndex = cellIdx;
+        window.refreshTurretRadiusDisplay?.();
+        refreshBuildAreaVisualization();
       } else {
         // Ohne Bau-Auswahl: Turm auswählen, um den Radius zu sehen
-        if (cell.classList.contains('turret-cell') || cell.classList.contains('cannon-cell')) {
+        if (hasAnyClass(cell, RANGE_TOWER_CELL_CLASSES)) {
           window.selectedTurretIndex = window.selectedTurretIndex === cellIdx ? null : cellIdx;
           window.refreshTurretRadiusDisplay?.();
           refreshBuildAreaVisualization();
@@ -762,23 +1308,113 @@ function startGame() {
     let activeHitShards = [];
     let activeHitBursts = [];
     let activeSoldiers = [];
+    let activeLightningArcs = [];
+    let activeStartCannonBullets = [];
     let TURRET_RANGE = 0;
+    let TESLA_RANGE = 0;
+    let TESLA_CHAIN_RANGE = 0;
+    let START_CANNON_RANGE = 0;
     const BULLET_SPEED = 420;
+    const START_CANNON_BULLET_SPEED = 560;
     const TURRET_COOLDOWN = 650; // ms
     const CANNON_COOLDOWN = 1300; // ms
+    const TESLA_COOLDOWN = TESLA_BASE_COOLDOWN_MS; // ms
+    const TESLA_CHAIN_MAX = 3; // max chain targets
+    const START_CANNON_COOLDOWN = 430; // ms
     const CANNON_AOE_RADIUS = 0.9; // in cell widths
-    const BARRACKS_SPAWN_MS = 2000;
+    const BASE_BARRACKS_SPAWN_MS = 2000;
     const SOLDIER_HIT_RADIUS = 12;
     const SOLDIER_ATTACK_COOLDOWN = 450;
     const ENEMY_MELEE_COOLDOWN = 650;
     let turretCooldowns = {};
     let barracksSpawnTimers = {};
+    let startCannonCooldowns = [0, 0];
 
   let currentWave = 1;
-  const maxWaves = 11;
-  const enemysPerWave = 11;
+  const maxWaves = 1111;
+  const enemysPerWave = 5;
+  window.waveState = {
+    current: 0,
+    next: 1,
+    max: maxWaves,
+    starting: false,
+    countdownActive: false,
+    countdownIntervalId: null,
+    countdownTimeoutId: null,
+    enemiesAliveInWave: false
+  };
   const wavesElem = document.getElementById('waves-count');
   if (wavesElem) wavesElem.textContent = currentWave;
+
+  function getWaveCountdownOverlay() {
+    return document.getElementById('wave-countdown-overlay');
+  }
+
+  function hideWaveCountdown() {
+    const overlay = getWaveCountdownOverlay();
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.textContent = '';
+  }
+
+  function clearWaveCountdownTimers() {
+    const waveState = window.waveState;
+    if (!waveState) return;
+    if (waveState.countdownIntervalId) {
+      clearInterval(waveState.countdownIntervalId);
+      waveState.countdownIntervalId = null;
+    }
+    if (waveState.countdownTimeoutId) {
+      clearTimeout(waveState.countdownTimeoutId);
+      waveState.countdownTimeoutId = null;
+    }
+    waveState.countdownActive = false;
+    hideWaveCountdown();
+  }
+
+  function scheduleNextWaveCountdown() {
+    const waveState = window.waveState;
+    if (!waveState || waveState.countdownActive || waveState.starting || window.noMoreWaves) return;
+    if (waveState.next > waveState.max) {
+      markAllWavesCompleted();
+      return;
+    }
+
+    const overlay = getWaveCountdownOverlay();
+    if (!overlay) return;
+
+    clearWaveCountdownTimers();
+    waveState.countdownActive = true;
+    let secondsLeft = 3;
+    overlay.textContent = String(secondsLeft);
+    overlay.classList.remove('hidden');
+
+    waveState.countdownIntervalId = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft <= 0) {
+        return;
+      }
+      overlay.textContent = String(secondsLeft);
+    }, 1000);
+
+    waveState.countdownTimeoutId = setTimeout(async () => {
+      clearWaveCountdownTimers();
+      await window.startNextWave?.();
+    }, 3000);
+  }
+
+  function markAllWavesCompleted() {
+    clearWaveCountdownTimers();
+    if (wavesElem) wavesElem.textContent = 'Fertig';
+    window.noMoreWaves = true;
+
+    const startCell = getStartCell();
+    if (startCell) {
+      startCell.classList.remove('pulse');
+      startCell.style.transform = '';
+      startCell.title = 'Alle Wellen abgeschlossen';
+    }
+  }
 
   // --- Shared Enemy Animation System ---
   let sharedEnemyCanvas = null;
@@ -827,6 +1463,9 @@ function startGame() {
     enemyObj.maxHp = 3;
     enemyObj.type = enemyObj.type || 'circle';
     activeEnemies.push(enemyObj);
+    if (window.waveState) {
+      window.waveState.enemiesAliveInWave = true;
+    }
     if (!animationRunning) {
       animationRunning = true;
       requestAnimationFrame(enemyAnimationLoop);
@@ -1015,14 +1654,18 @@ function startGame() {
         };
       });
 
+      const barracksStats = getBarracksRuntimeStats(barracksIdx);
+
       activeSoldiers.push({
         positions,
         seg: 0,
         t: 0,
         lastTimestamp: null,
-        speed: 130,
-        hp: 3,
-        maxHp: 3,
+        speed: barracksStats.movementSpeed,
+        hp: barracksStats.maxHp,
+        maxHp: barracksStats.maxHp,
+        damage: barracksStats.strengthDamage,
+        armorReduction: barracksStats.armorReduction,
         engagedEnemy: null,
         lastAttackTimestamp: 0,
         lastReceivedHitTimestamp: 0
@@ -1035,7 +1678,9 @@ function startGame() {
       for (let i = 0; i < cellsNow.length; i++) {
         if (!cellsNow[i].classList.contains('barracks-cell')) continue;
         aliveBarracks.add(String(i));
-        if (!barracksSpawnTimers[i] || timestamp - barracksSpawnTimers[i] >= BARRACKS_SPAWN_MS) {
+        const barracksStats = getBarracksRuntimeStats(i);
+        const spawnInterval = Math.max(450, Math.min(BASE_BARRACKS_SPAWN_MS, barracksStats.spawnIntervalMs));
+        if (!barracksSpawnTimers[i] || timestamp - barracksSpawnTimers[i] >= spawnInterval) {
           spawnSoldierFromBarracks(i);
           barracksSpawnTimers[i] = timestamp;
         }
@@ -1156,6 +1801,10 @@ function startGame() {
     // --- SOLDIER MOVEMENT & DRAW ---
     let stillSoldiers = [];
     for (const soldier of activeSoldiers) {
+      if ((soldier.hp !== undefined ? soldier.hp : 1) <= 0) {
+        continue;
+      }
+
       if (!soldier.lastTimestamp) soldier.lastTimestamp = timestamp;
       let dt = (timestamp - soldier.lastTimestamp) / 1000;
       if (dt > 0.15) dt = 0.15;
@@ -1174,12 +1823,14 @@ function startGame() {
           if (!soldier.lastReceivedHitTimestamp) soldier.lastReceivedHitTimestamp = timestamp;
 
           if (timestamp - soldier.lastAttackTimestamp >= SOLDIER_ATTACK_COOLDOWN) {
-            enemy.hp = (enemy.hp !== undefined ? enemy.hp : 1) - 1;
+            enemy.hp = (enemy.hp !== undefined ? enemy.hp : 1) - (soldier.damage || 1);
             soldier.lastAttackTimestamp = timestamp;
           }
 
           if ((enemy.hp !== undefined ? enemy.hp : 1) > 0 && timestamp - soldier.lastReceivedHitTimestamp >= ENEMY_MELEE_COOLDOWN) {
-            soldier.hp = (soldier.hp !== undefined ? soldier.hp : 1) - 1;
+            const reduction = Math.max(0, Math.min(0.75, soldier.armorReduction || 0));
+            const incomingDamage = Math.max(0.2, 1 * (1 - reduction));
+            soldier.hp = (soldier.hp !== undefined ? soldier.hp : 1) - incomingDamage;
             soldier.lastReceivedHitTimestamp = timestamp;
           }
 
@@ -1272,6 +1923,134 @@ function startGame() {
     }
     activeSoldiers = stillSoldiers;
 
+    // --- START CELL: DUAL GIANT CANNONS AGAINST SOLDIERS ---
+    function getSoldierDrawPos(soldier) {
+      if (soldier._drawX !== undefined && soldier._drawY !== undefined) {
+        return { x: soldier._drawX, y: soldier._drawY };
+      }
+      const p = soldier.positions?.[soldier.seg] || soldier.positions?.[0];
+      if (!p) return null;
+      return { x: p.x, y: p.y };
+    }
+
+    function getStartCannonData() {
+      const startCell = getStartCell();
+      if (!startCell || !cellWidth || !cellHeight) return null;
+      const cellsNow = getCells();
+      const startIdx = Array.from(cellsNow).indexOf(startCell);
+      if (startIdx < 0) return null;
+
+      const sx = (startIdx % COLS) * cellWidth + cellWidth / 2;
+      const sy = Math.floor(startIdx / COLS) * cellHeight + cellHeight / 2;
+
+      let dirX = 0;
+      let dirY = -1;
+      if (latestEnemyAStarPath.length > 1) {
+        let startPosInPath = latestEnemyAStarPath.indexOf(startIdx);
+        if (startPosInPath < 0) startPosInPath = 0;
+        const nextPos = Math.min(startPosInPath + 1, latestEnemyAStarPath.length - 1);
+        const nextIdx = latestEnemyAStarPath[nextPos];
+        if (nextIdx !== undefined && nextIdx !== startIdx) {
+          const nx = (nextIdx % COLS) * cellWidth + cellWidth / 2;
+          const ny = Math.floor(nextIdx / COLS) * cellHeight + cellHeight / 2;
+          const dx = nx - sx;
+          const dy = ny - sy;
+          const len = Math.hypot(dx, dy) || 1;
+          dirX = dx / len;
+          dirY = dy / len;
+        }
+      }
+
+      const perpX = -dirY;
+      const perpY = dirX;
+      const lateralOffset = Math.max(cellWidth, cellHeight) * 0.34;
+      const barrelLen = Math.max(cellWidth, cellHeight) * 0.85;
+      const baseRadius = Math.max(cellWidth, cellHeight) * 0.18;
+
+      return [
+        {
+          baseX: sx + perpX * lateralOffset,
+          baseY: sy + perpY * lateralOffset,
+          muzzleX: sx + perpX * lateralOffset + dirX * barrelLen,
+          muzzleY: sy + perpY * lateralOffset + dirY * barrelLen,
+          radius: baseRadius
+        },
+        {
+          baseX: sx - perpX * lateralOffset,
+          baseY: sy - perpY * lateralOffset,
+          muzzleX: sx - perpX * lateralOffset + dirX * barrelLen,
+          muzzleY: sy - perpY * lateralOffset + dirY * barrelLen,
+          radius: baseRadius
+        }
+      ];
+    }
+
+    function drawStartCannons(cannonData) {
+      for (const cannon of cannonData) {
+        sharedEnemyCtx.save();
+        sharedEnemyCtx.lineCap = 'round';
+        sharedEnemyCtx.beginPath();
+        sharedEnemyCtx.moveTo(cannon.baseX, cannon.baseY);
+        sharedEnemyCtx.lineTo(cannon.muzzleX, cannon.muzzleY);
+        sharedEnemyCtx.strokeStyle = '#6c7ea5';
+        sharedEnemyCtx.shadowColor = '#c0d0ff';
+        sharedEnemyCtx.shadowBlur = 12;
+        sharedEnemyCtx.lineWidth = cannon.radius * 1.25;
+        sharedEnemyCtx.stroke();
+
+        sharedEnemyCtx.beginPath();
+        sharedEnemyCtx.arc(cannon.baseX, cannon.baseY, cannon.radius, 0, 2 * Math.PI);
+        sharedEnemyCtx.fillStyle = '#273754';
+        sharedEnemyCtx.strokeStyle = '#9bb7e6';
+        sharedEnemyCtx.lineWidth = 1.5;
+        sharedEnemyCtx.fill();
+        sharedEnemyCtx.stroke();
+
+        sharedEnemyCtx.beginPath();
+        sharedEnemyCtx.arc(cannon.muzzleX, cannon.muzzleY, cannon.radius * 0.35, 0, 2 * Math.PI);
+        sharedEnemyCtx.fillStyle = '#e3f2ff';
+        sharedEnemyCtx.shadowColor = '#e3f2ff';
+        sharedEnemyCtx.shadowBlur = 8;
+        sharedEnemyCtx.fill();
+        sharedEnemyCtx.restore();
+      }
+    }
+
+    const startCannons = getStartCannonData();
+    if (startCannons) {
+      drawStartCannons(startCannons);
+      for (let cannonIdx = 0; cannonIdx < startCannons.length; cannonIdx++) {
+        const cannon = startCannons[cannonIdx];
+        if (timestamp - (startCannonCooldowns[cannonIdx] || 0) < START_CANNON_COOLDOWN) continue;
+
+        let nearestSoldier = null;
+        let minDist = START_CANNON_RANGE;
+        for (const soldier of activeSoldiers) {
+          if ((soldier.hp || 0) <= 0) continue;
+          const sPos = getSoldierDrawPos(soldier);
+          if (!sPos) continue;
+          const dx = sPos.x - cannon.muzzleX;
+          const dy = sPos.y - cannon.muzzleY;
+          const dist = Math.hypot(dx, dy);
+          if (dist < minDist) {
+            minDist = dist;
+            nearestSoldier = soldier;
+          }
+        }
+
+        if (!nearestSoldier) continue;
+        startCannonCooldowns[cannonIdx] = timestamp;
+        activeStartCannonBullets.push({
+          x: cannon.muzzleX,
+          y: cannon.muzzleY,
+          target: nearestSoldier,
+          life: 0,
+          maxLife: 90,
+          hit: false
+        });
+      }
+    }
+
     // --- TURRET SHOOTING ---
     const cells = getCells();
     const selectedTurretIndex = window.selectedTurretIndex;
@@ -1279,36 +2058,40 @@ function startGame() {
       const cell = cells[i];
       const isNormalTurret = cell.classList.contains('turret-cell');
       const isCannonTurret = cell.classList.contains('cannon-cell');
-      if (!isNormalTurret && !isCannonTurret) continue;
+      const isTeslaTurret = cell.classList.contains('tesla-cell');
+      if (!isNormalTurret && !isCannonTurret && !isTeslaTurret) continue;
       // Turm-Position (Mitte der Zelle)
       const col = i % 20;
       const row = Math.floor(i / 20);
       const tx = col * cellWidth + cellWidth / 2;
       const ty = row * cellHeight + cellHeight / 2;
-      const cooldownMs = isCannonTurret ? CANNON_COOLDOWN : TURRET_COOLDOWN;
+      const teslaStats = isTeslaTurret ? getTeslaRuntimeStats(i, TESLA_RANGE, TESLA_CHAIN_RANGE, TESLA_COOLDOWN) : null;
+      const cooldownMs = isCannonTurret ? CANNON_COOLDOWN : (isTeslaTurret ? teslaStats.cooldownMs : TURRET_COOLDOWN);
+      const displayRange = isTeslaTurret ? teslaStats.range : TURRET_RANGE;
 
       // Schussradius nur fuer den ausgewaehlten Turm sichtbar machen
       if (i === selectedTurretIndex) {
         const rangePulse = 0.5 + 0.5 * Math.sin(timestamp * 0.005 + i);
         const sweepAngle = (timestamp * 0.0015 + i * 0.35) % (Math.PI * 2);
         const sweepWidth = 0.42;
-        const edgeX = tx + Math.cos(sweepAngle) * TURRET_RANGE;
-        const edgeY = ty + Math.sin(sweepAngle) * TURRET_RANGE;
+        const edgeX = tx + Math.cos(sweepAngle) * displayRange;
+        const edgeY = ty + Math.sin(sweepAngle) * displayRange;
+        const rangeColor = isTeslaTurret ? ['200, 100, 255', '#c864ff', '#9b20ff'] : ['0, 255, 247', '#00fff7', '#8cfffc'];
         sharedEnemyCtx.save();
 
         // Soft base disc so the range area is always visible
         sharedEnemyCtx.beginPath();
-        sharedEnemyCtx.arc(tx, ty, TURRET_RANGE, 0, 2 * Math.PI);
-        sharedEnemyCtx.fillStyle = `rgba(0, 255, 247, ${0.14 + rangePulse * 0.08})`;
+        sharedEnemyCtx.arc(tx, ty, displayRange, 0, 2 * Math.PI);
+        sharedEnemyCtx.fillStyle = `rgba(${rangeColor[0]}, ${0.14 + rangePulse * 0.08})`;
         sharedEnemyCtx.fill();
 
         // Sonar sweep cone (radar scan)
         sharedEnemyCtx.beginPath();
         sharedEnemyCtx.moveTo(tx, ty);
-        sharedEnemyCtx.arc(tx, ty, TURRET_RANGE, sweepAngle - sweepWidth, sweepAngle + sweepWidth);
+        sharedEnemyCtx.arc(tx, ty, displayRange, sweepAngle - sweepWidth, sweepAngle + sweepWidth);
         sharedEnemyCtx.closePath();
-        sharedEnemyCtx.fillStyle = `rgba(140, 255, 252, ${0.08 + rangePulse * 0.07})`;
-        sharedEnemyCtx.shadowColor = '#8cfffC';
+        sharedEnemyCtx.fillStyle = `rgba(${rangeColor[0]}, ${0.08 + rangePulse * 0.07})`;
+        sharedEnemyCtx.shadowColor = rangeColor[2];
         sharedEnemyCtx.shadowBlur = 6 + rangePulse * 5;
         sharedEnemyCtx.fill();
 
@@ -1328,17 +2111,17 @@ function startGame() {
 
         // Outer ring on top
         sharedEnemyCtx.beginPath();
-        sharedEnemyCtx.arc(tx, ty, TURRET_RANGE, 0, 2 * Math.PI);
-        sharedEnemyCtx.strokeStyle = `rgba(0, 255, 247, ${0.8 + rangePulse * 0.2})`;
+        sharedEnemyCtx.arc(tx, ty, displayRange, 0, 2 * Math.PI);
+        sharedEnemyCtx.strokeStyle = `rgba(${rangeColor[0]}, ${0.8 + rangePulse * 0.2})`;
         sharedEnemyCtx.lineWidth = 3;
         sharedEnemyCtx.setLineDash([10, 6]);
-        sharedEnemyCtx.shadowColor = '#00fff7';
+        sharedEnemyCtx.shadowColor = rangeColor[1];
         sharedEnemyCtx.shadowBlur = 10 + rangePulse * 12;
         sharedEnemyCtx.stroke();
 
         // Inner highlight ring
         sharedEnemyCtx.beginPath();
-        sharedEnemyCtx.arc(tx, ty, TURRET_RANGE, 0, 2 * Math.PI);
+        sharedEnemyCtx.arc(tx, ty, displayRange, 0, 2 * Math.PI);
         sharedEnemyCtx.strokeStyle = `rgba(255, 255, 255, ${0.5 + rangePulse * 0.25})`;
         sharedEnemyCtx.lineWidth = 1.2;
         sharedEnemyCtx.setLineDash([]);
@@ -1350,7 +2133,7 @@ function startGame() {
       if (!turretCooldowns[i] || timestamp - turretCooldowns[i] > cooldownMs) {
         // Nächstes Ziel im Umkreis suchen
         let nearest = null;
-        let minDist = TURRET_RANGE;
+        let minDist = isTeslaTurret ? teslaStats.range : TURRET_RANGE;
         for (const enemy of activeEnemies) {
           const dx = enemy._drawX - tx;
           const dy = enemy._drawY - ty;
@@ -1361,15 +2144,52 @@ function startGame() {
           }
         }
         if (nearest) {
-          // Bullet erzeugen
-          activeBullets.push({
-            x: tx,
-            y: ty,
-            target: nearest,
-            hit: false,
-            isCannon: isCannonTurret,
-            splashRadius: isCannonTurret ? CANNON_AOE_RADIUS * Math.max(cellWidth, cellHeight) : 0
-          });
+          if (isTeslaTurret) {
+            // Kettenblitz: bis zu TESLA_CHAIN_MAX Ziele
+            const targets = [nearest];
+            let src = nearest;
+            for (let c = 1; c < TESLA_CHAIN_MAX; c++) {
+              let nextTarget = null;
+              let nextMinDist = teslaStats.chainRange;
+              for (const enemy of activeEnemies) {
+                if (targets.includes(enemy)) continue;
+                if (enemy._drawX === undefined) continue;
+                const edx = enemy._drawX - src._drawX;
+                const edy = enemy._drawY - src._drawY;
+                const d = Math.sqrt(edx * edx + edy * edy);
+                if (d < nextMinDist) { nextMinDist = d; nextTarget = enemy; }
+              }
+              if (!nextTarget) break;
+              targets.push(nextTarget);
+              src = nextTarget;
+            }
+            // Blitzkette visualisieren
+            const arcChain = [{x: tx, y: ty}, ...targets.map(t => ({x: t._drawX, y: t._drawY}))];
+            for (let c = 0; c < arcChain.length - 1; c++) {
+              activeLightningArcs.push({ x1: arcChain[c].x, y1: arcChain[c].y, x2: arcChain[c+1].x, y2: arcChain[c+1].y, life: 0, maxLife: 10 });
+            }
+            // Schaden auf alle Kettenziele
+            for (const t of targets) {
+              t.hp = (t.hp !== undefined ? t.hp : 1) - teslaStats.damage;
+            }
+            // Tote Gegner entfernen
+            for (let k = activeEnemies.length - 1; k >= 0; k--) {
+              if ((activeEnemies[k].hp ?? 1) <= 0) {
+                rewardCoinAtWorldPos(activeEnemies[k]._drawX, activeEnemies[k]._drawY);
+                activeEnemies.splice(k, 1);
+              }
+            }
+          } else {
+            // Bullet erzeugen
+            activeBullets.push({
+              x: tx,
+              y: ty,
+              target: nearest,
+              hit: false,
+              isCannon: isCannonTurret,
+              splashRadius: isCannonTurret ? CANNON_AOE_RADIUS * Math.max(cellWidth, cellHeight) : 0
+            });
+          }
           turretCooldowns[i] = timestamp;
         }
       }
@@ -1431,8 +2251,7 @@ function startGame() {
         setTimeout(() => coin.remove(), 700);
       }
       if (coinsElem) {
-        let coins = parseInt(coinsElem.textContent, 10) || 0;
-        coinsElem.textContent = coins + 1;
+        setCoinsValue(getCoinsValue() + 1);
       }
     }
 
@@ -1493,6 +2312,65 @@ function startGame() {
     }
     activeBullets = stillBullets;
 
+    // --- START CANNON BULLETS VS SOLDIERS ---
+    let stillStartCannonBullets = [];
+    for (const bullet of activeStartCannonBullets) {
+      bullet.life++;
+      if (bullet.life > bullet.maxLife) continue;
+
+      let targetPos = null;
+      if (bullet.target && (bullet.target.hp || 0) > 0) {
+        targetPos = getSoldierDrawPos(bullet.target);
+      }
+
+      if (!targetPos) {
+        let nearest = null;
+        let minDist = START_CANNON_RANGE;
+        for (const soldier of activeSoldiers) {
+          if ((soldier.hp || 0) <= 0) continue;
+          const sPos = getSoldierDrawPos(soldier);
+          if (!sPos) continue;
+          const dx = sPos.x - bullet.x;
+          const dy = sPos.y - bullet.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < minDist) {
+            minDist = dist;
+            nearest = soldier;
+            targetPos = sPos;
+          }
+        }
+        bullet.target = nearest;
+      }
+
+      if (!targetPos) continue;
+
+      const dx = targetPos.x - bullet.x;
+      const dy = targetPos.y - bullet.y;
+      const dist = Math.hypot(dx, dy);
+      const move = Math.min(START_CANNON_BULLET_SPEED * (1 / 60), dist);
+
+      if (dist < 10) {
+        bullet.target.hp = 0;
+        bullet.hit = true;
+        spawnHitShards(targetPos.x, targetPos.y, true);
+      } else {
+        bullet.x += (dx / (dist || 1)) * move;
+        bullet.y += (dy / (dist || 1)) * move;
+      }
+
+      sharedEnemyCtx.save();
+      sharedEnemyCtx.beginPath();
+      sharedEnemyCtx.arc(bullet.x, bullet.y, 3.2, 0, 2 * Math.PI);
+      sharedEnemyCtx.fillStyle = '#a8d4ff';
+      sharedEnemyCtx.shadowColor = '#d7ebff';
+      sharedEnemyCtx.shadowBlur = 10;
+      sharedEnemyCtx.fill();
+      sharedEnemyCtx.restore();
+
+      if (!bullet.hit) stillStartCannonBullets.push(bullet);
+    }
+    activeStartCannonBullets = stillStartCannonBullets;
+
     // --- IMPACT BURST ANIMATION ---
     let stillBursts = [];
     for (const burst of activeHitBursts) {
@@ -1542,9 +2420,70 @@ function startGame() {
     }
     activeHitShards = stillShards;
 
+    // --- TESLA LIGHTNING ARC ANIMATION ---
+    function drawLightning(ctx, x1, y1, x2, y2, alpha) {
+      const segments = 8;
+      const points = [{x: x1, y: y1}];
+      for (let s = 1; s < segments; s++) {
+        const t = s / segments;
+        points.push({
+          x: x1 + (x2 - x1) * t + (Math.random() - 0.5) * 20,
+          y: y1 + (y2 - y1) * t + (Math.random() - 0.5) * 20
+        });
+      }
+      points.push({x: x2, y: y2});
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      // Glow layer
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let s = 1; s < points.length; s++) ctx.lineTo(points[s].x, points[s].y);
+      ctx.strokeStyle = '#c864ff';
+      ctx.lineWidth = 3.5;
+      ctx.shadowColor = '#c864ff';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      // Core white layer
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let s = 1; s < points.length; s++) ctx.lineTo(points[s].x, points[s].y);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 4;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    let stillArcs = [];
+    for (const arc of activeLightningArcs) {
+      arc.life++;
+      if (arc.life > arc.maxLife) continue;
+      const alpha = 1 - arc.life / arc.maxLife;
+      drawLightning(sharedEnemyCtx, arc.x1, arc.y1, arc.x2, arc.y2, alpha);
+      stillArcs.push(arc);
+    }
+    activeLightningArcs = stillArcs;
+
+    const waveState = window.waveState;
+    if (
+      waveState &&
+      waveState.enemiesAliveInWave &&
+      !waveState.starting &&
+      !waveState.countdownActive &&
+      activeEnemies.length === 0
+    ) {
+      waveState.enemiesAliveInWave = false;
+      if (waveState.current >= waveState.max) {
+        markAllWavesCompleted();
+      } else {
+        scheduleNextWaveCountdown();
+      }
+    }
+
     const keepForRadius = window.selectedTurretIndex !== null && window.selectedTurretIndex !== undefined;
     const keepForBarracks = window.gameStarted && Array.from(getCells()).some(c => c.classList.contains('barracks-cell'));
-    if (activeEnemies.length > 0 || keepForRadius || activeHitShards.length > 0 || activeHitBursts.length > 0 || activeSoldiers.length > 0 || keepForBarracks) {
+    const keepForStartCannons = window.gameStarted && activeSoldiers.length > 0;
+    if (activeEnemies.length > 0 || keepForRadius || activeHitShards.length > 0 || activeHitBursts.length > 0 || activeSoldiers.length > 0 || keepForBarracks || activeLightningArcs.length > 0 || activeStartCannonBullets.length > 0 || keepForStartCannons) {
       requestAnimationFrame(enemyAnimationLoop);
     } else {
       animationRunning = false;
@@ -1553,16 +2492,29 @@ function startGame() {
   }
 
   async function startWave(waveNum) {
+    if (waveNum > maxWaves) {
+      markAllWavesCompleted();
+      return false;
+    }
+
+    clearWaveCountdownTimers();
+
     if (wavesElem) wavesElem.textContent = waveNum;
+    currentWave = waveNum;
+    window.waveState.current = waveNum;
+    window.waveState.enemiesAliveInWave = false;
     const path = await findShortestAStarPath();
     if (!path || path.length < 2) {
       console.warn('Kein gültiger Pfad für diese Welle!');
-      return;
+      return false;
     }
     latestEnemyAStarPath = path.slice();
     setupSharedCanvas();
     // Nach Canvas-Setup: Range korrekt setzen
     TURRET_RANGE = 4.5 * Math.max(cellWidth, cellHeight);
+    TESLA_RANGE = TESLA_BASE_RANGE_CELLS * Math.max(cellWidth, cellHeight);
+    TESLA_CHAIN_RANGE = TESLA_BASE_CHAIN_CELLS * Math.max(cellWidth, cellHeight);
+    START_CANNON_RANGE = 7.2 * Math.max(cellWidth, cellHeight);
     const enemyTypes = ['circle', 'square', 'triangle'];
     const waveEnemyType = enemyTypes[(waveNum - 1) % enemyTypes.length];
     // Use cached cellWidth/cellHeight for performance
@@ -1599,25 +2551,25 @@ function startGame() {
       });
       await new Promise(r => setTimeout(r, 200));
     }
+
+    return true;
   }
 
-  let nextWaveToStart = 1;
-  let waveStarting = false;
   window.startNextWave = async () => {
-    if (waveStarting || window.noMoreWaves) return;
-    if (nextWaveToStart > maxWaves) {
-      if (wavesElem) wavesElem.textContent = 'Fertig';
-      window.noMoreWaves = true;
+    const waveState = window.waveState;
+    if (!waveState || waveState.starting || window.noMoreWaves) return;
+
+    if (waveState.next > waveState.max) {
+      markAllWavesCompleted();
       return;
     }
-    waveStarting = true;
-    await startWave(nextWaveToStart);
-    nextWaveToStart++;
-    waveStarting = false;
-    if (nextWaveToStart > maxWaves) {
-      if (wavesElem) wavesElem.textContent = 'Fertig';
-      window.noMoreWaves = true;
+
+    waveState.starting = true;
+    const started = await startWave(waveState.next);
+    if (started) {
+      waveState.next++;
     }
+    waveState.starting = false;
   };
 }
 
@@ -1632,6 +2584,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mouseLeave = () => { cell.style.transform = ''; };
         const clickHandler = async () => {
           if (window.noMoreWaves) return;
+          if (window._gameInitialized) return;
           cell.style.transform = 'scale(1.3)';
           setTimeout(async () => {
             if (!window._gameInitialized) {
