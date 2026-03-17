@@ -8,6 +8,9 @@ header {
   letter-spacing: 0.08em;
   font-family: 'Orbitron', Arial, sans-serif;
   text-shadow: 0 0 18px #00fff7, 0 0 8px #00fff7;
+  transition: opacity 0.7s ease, transform 0.7s ease, max-height 0.7s ease, padding 0.7s ease, border-width 0.7s ease;
+  max-height: 180px;
+  overflow: hidden;
 }
 
 header h1 {
@@ -20,21 +23,32 @@ header h1 {
 }
 
 main {
-  background: rgba(34, 0, 51, 0.55);
-  box-shadow: 0 0 8px #00fff7, 0 0 2px #ff00c8 inset;
+  background:
+    radial-gradient(circle at 14% 22%, rgba(48, 222, 145, 0.1) 0, rgba(48, 222, 145, 0) 22%),
+    radial-gradient(circle at 82% 72%, rgba(0, 255, 247, 0.08) 0, rgba(0, 255, 247, 0) 20%),
+    rgba(5, 19, 15, 0.72);
+  box-shadow: 0 0 14px rgba(0, 255, 180, 0.4), 0 0 2px rgba(0, 255, 247, 0.35) inset;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'IM Fell English', 'Old English Text MT', serif;
   letter-spacing: 0.04em;
+  min-height: calc(100vh - 170px);
+  transition: min-height 0.8s ease, padding 0.8s ease, margin 0.8s ease;
 }
 
 #main-content {
-  box-shadow: 0 0 24px #00fff7;
+  box-shadow: 0 0 24px rgba(0, 255, 220, 0.45);
   border-radius: 18px;
-  background: rgb(1, 79, 82);
+  background:
+    linear-gradient(90deg, rgba(0, 255, 170, 0.09) 1px, transparent 1px),
+    linear-gradient(rgba(0, 255, 170, 0.08) 1px, transparent 1px),
+    linear-gradient(155deg, rgba(5, 48, 34, 0.96) 0%, rgba(4, 36, 28, 0.96) 52%, rgba(3, 26, 20, 0.96) 100%);
+  background-size: 26px 26px, 26px 26px, cover;
   margin: 18px auto;
   padding: 18px;
+  position: relative;
+  transition: width 0.8s ease, max-width 0.8s ease, margin 0.8s ease, border-radius 0.8s ease, padding 0.8s ease, box-shadow 0.8s ease;
 }
 
 .wave-countdown-overlay {
@@ -64,27 +78,61 @@ main {
   display: none;
 }
 
-footer {
-  background: linear-gradient(90deg, #0f0c29 0%, #24243e 100%);
-  color: #00fff7;
-  text-shadow: 0 0 18px #00fff7, 0 0 8px #00fff7;
-  border-top: 4px solid #00fff7;
-  box-shadow: 0 0 24px #00fff7, 0 0 8px #00fff7 inset;
-  padding: 1.5rem 0 1rem 0;
-  text-align: center;
-  letter-spacing: 0.08em;
-  font-family: 'Orbitron', Arial, sans-serif;
-}
-
 /* Orbitron Schrift für Cyberpunk */
 @import url('https://fonts.googleapis.com/css?family=Orbitron:700&display=swap');
 
 body {
-  background: linear-gradient(135deg, #1a0036 0%, #0f0c29 40%, #24243e 100%);
+  margin: 0;
+  background-color: #091812;
+  background-image:
+    radial-gradient(circle at 8% 14%, rgba(70, 255, 173, 0.16) 0 2px, transparent 3px),
+    radial-gradient(circle at 87% 81%, rgba(0, 255, 247, 0.1) 0 2px, transparent 3px),
+    linear-gradient(90deg, rgba(22, 147, 92, 0.18) 1px, transparent 1px),
+    linear-gradient(rgba(22, 147, 92, 0.16) 1px, transparent 1px),
+    linear-gradient(155deg, #08150f 0%, #0b2018 46%, #06110d 100%);
+  background-size: auto, auto, 42px 42px, 42px 42px, cover;
   color: #f8f8ff;
-  font-family: 'Orbitron', 'IM Fell English', Arial, sans-serif;
+  font-family: 'IM Fell English', 'Old English Text MT', serif;
   letter-spacing: 0.03em;
   overflow-x: hidden;
+  min-height: 100vh;
+}
+
+body.cinematic-active header,
+body.cinematic-active footer {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.cinematic-active header {
+  transform: translateY(-24px);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
+}
+
+body.cinematic-active footer {
+  transform: translateY(24px);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-width: 0;
+}
+
+body.cinematic-active main {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+body.cinematic-active #main-content {
+  width: 100vw;
+  max-width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 10px;
+  border-radius: 0;
 }
 
 /* Neon-Licht Animation */
@@ -105,12 +153,6 @@ body {
 #coins-symbol {
   color: #ffe066;
   text-shadow: 0 0 16px #ffe066, 0 0 2px #fff;
-  animation: neonGlow 1.2s infinite alternate;
-}
-
-.flying-coin {
-  font-size: 2em;
-  filter: drop-shadow(0 0 12px #ffe066);
   animation: neonGlow 1.2s infinite alternate;
 }
 
@@ -156,56 +198,9 @@ body {
   box-shadow: 0 0 18px #00fff7, 0 0 8px #ff00c8;
 }
 
-.tower-select-btn {
-  background: #1a0036;
-  color: #00fff7;
-  border: 2px solid #ff00c8;
-  box-shadow: 0 0 8px #ff00c8, 0 0 4px #00fff7;
-  font-family: 'Orbitron', Arial, sans-serif;
-}
-
-.tower-select-btn.selected {
-  background: #ff00c8;
-  color: #fff;
-  border-color: #00fff7;
-  box-shadow: 0 0 12px #00fff7, 0 0 8px #ff00c8;
-}
-
-.tower-select-btn.animate {
-  animation: towerBtnClick 0.18s cubic-bezier(.68, -0.55, .27, 1.55);
-}
-
-#lives-container {
-  background: rgba(34, 0, 51, 0.85);
-  border: 2px solid #00fff7;
-  box-shadow: 0 0 16px #00fff7, 0 2px 8px #ff00c8;
-}
-
-footer {
-  color: #ffe066;
-  text-shadow: 0 0 8px #ffe066;
-  background: transparent;
-  border-top: 1px solid #ff00c8;
-  padding-top: 8px;
-}
-
 /* Energiebalken Neon-Glow */
 .enemy-bar-glow {
   filter: drop-shadow(0 0 6px #00fff7) drop-shadow(0 0 2px #ff00c8);
-}
-
-/* --- Cyberpunk Style --- */
-body {
-  background: linear-gradient(135deg, #1a0036 0%, #0f0c29 40%, #24243e 100%);
-  color: #f8f8ff;
-  font-family: 'Orbitron', 'IM Fell English', Arial, sans-serif;
-  letter-spacing: 0.03em;
-}
-
-#lives-container {
-  background: rgba(34, 0, 51, 0.85);
-  border: 2px solid #00fff7;
-  box-shadow: 0 0 16px #00fff7, 0 2px 8px #8c5c2b22;
 }
 
 #heart-symbol {
@@ -276,14 +271,76 @@ body {
   letter-spacing: 0.03em;
 }
 
+.rts-debug-toggle {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 999;
+  border: 1px solid rgba(90, 255, 205, 0.65);
+  border-radius: 8px;
+  background: rgba(8, 40, 33, 0.88);
+  color: #c8fff0;
+  font-family: 'Orbitron', Arial, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 7px 13px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 255, 180, 0.3);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rts-debug-toggle:hover {
+  background: rgba(16, 74, 61, 0.86);
+  border-color: rgba(120, 255, 227, 0.9);
+  color: #e6fff7;
+}
+
+.rts-debug.hidden {
+  display: none;
+}
+
 #rts-canvas {
   width: 100%;
   height: auto;
   border: 1px solid rgba(0, 255, 247, 0.4);
   border-radius: 10px;
   background: #03101d;
-  touch-action: none;
+  touch-action: pan-x pan-y;
   user-select: none;
+}
+
+@media (max-width: 700px) {
+  body {
+    overflow: auto;
+  }
+
+  main {
+    min-height: 0;
+    align-items: flex-start;
+    padding: 0;
+  }
+
+  #main-content {
+    width: 100vw;
+    max-width: none;
+    min-height: calc(100vh - 90px);
+    margin: 0;
+    padding: 8px;
+    border-radius: 0;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+
+  .rts-shell {
+    width: max-content;
+    min-width: 100vw;
+  }
+
+  #rts-canvas {
+    width: 960px;
+    height: 720px;
+  }
 }
 
 .rts-debug {
@@ -321,50 +378,6 @@ body {
   color: #1a0036;
   border-color: #00fff7;
   box-shadow: 0 0 12px #00fff7;
-}
-
-.tower-select-btn {
-  background: #1a0036;
-  color: #00fff7;
-  border: 2px solid #ff00c8;
-  box-shadow: 0 0 8px #ff00c8;
-  transition: background 0.15s, border 0.15s, color 0.15s;
-}
-
-.tower-select-btn.selected {
-  background: #ff00c8;
-  color: #fff;
-  border-color: #00fff7;
-  box-shadow: 0 0 12px #00fff7;
-}
-
-.tower-select-btn.animate {
-  animation: towerBtnClick 0.18s cubic-bezier(.68, -0.55, .27, 1.55);
-}
-
-footer {
-  color: #ffe066;
-  text-shadow: 0 0 8px #ffe066;
-  background: transparent;
-  border-top: 1px solid #ff00c8;
-  padding-top: 8px;
-}
-
-/* Animierte Münze beim Enemy-Treffer */
-.flying-coin {
-  position: fixed;
-  z-index: 9999;
-  pointer-events: none;
-  font-size: 1.5em;
-  transition: transform 0.7s cubic-bezier(.68, -0.55, .27, 1.55), opacity 0.7s;
-  will-change: transform, opacity;
-}
-
-/* Münzen-Anzeige */
-#coins-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 #coins-symbol-wrap {
@@ -423,11 +436,6 @@ footer {
   border-color: #1237a8;
 }
 
-/* Animation für Tower-Button beim Klick */
-.tower-select-btn.animate {
-  animation: towerBtnClick 0.18s cubic-bezier(.68, -0.55, .27, 1.55);
-}
-
 @keyframes towerBtnClick {
   0% {
     transform: scale(1);
@@ -453,6 +461,7 @@ footer {
   border: 2px solid #bfa34a;
   background: #fffbe7;
   color: #6b4c1b;
+  font-family: 'Orbitron', Arial, sans-serif;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, border 0.15s;
@@ -495,7 +504,6 @@ footer {
   display: flex;
   justify-content: center;
   gap: 42px;
-  background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
   box-shadow: 0 2px 8px #8c5c2b22;
   padding: 4px 10px;
@@ -812,34 +820,12 @@ footer {
 }
 
 footer {
-  background: #f0f0f0;
-  text-align: center;
-  padding: 1rem 0;
-  border-top: 1px solid #ddd;
-  font-size: 0.95rem;
-  color: #555;
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 10;
-}
-
-body {
-  margin: 0;
-  font-family: 'IM Fell English', 'Old English Text MT', serif;
-  background: #f5e9da;
-}
-
-footer {
-  background: #dd00ff66;
-  text-align: center;
-  padding: 1rem 0;
   font-size: 1rem;
-  color: #fffbe6;
-  font-family: 'IM Fell English', 'Old English Text MT', serif;
-}
-footer {
   background: linear-gradient(90deg, #0f0c29 0%, #24243e 100%);
   color: #00fff7;
   text-shadow: 0 0 18px #00fff7, 0 0 8px #00fff7;
@@ -849,16 +835,15 @@ footer {
   text-align: center;
   letter-spacing: 0.08em;
   font-family: 'Orbitron', Arial, sans-serif;
+  transition: opacity 0.7s ease, transform 0.7s ease, max-height 0.7s ease, padding 0.7s ease, border-width 0.7s ease;
+  max-height: 180px;
+  overflow: hidden;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(20, 1fr);
   grid-template-rows: repeat(15, 1fr);
-}
-
-#main-content {
-  position: relative;
 }
 
 #enemy-canvas {

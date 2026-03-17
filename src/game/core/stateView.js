@@ -42,6 +42,15 @@ function toRenderEntities(entities, fogState, playerTeamId) {
       hp: entity.components?.health?.hp ?? null,
       maxHp: entity.components?.health?.maxHp ?? null,
       attackTargetId: entity.components?.combat?.targetEntityId ?? null,
+      build: entity.components?.build
+        ? {
+          type: entity.components.build.type,
+          targetX: entity.components.build.targetX,
+          targetY: entity.components.build.targetY,
+          ticksRemaining: entity.components.build.ticksRemaining,
+          totalTicks: entity.components.build.totalTicks
+        }
+        : null,
       target: entity.components?.movement?.target
         ? {
           x: entity.components.movement.target.x,

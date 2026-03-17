@@ -1,5 +1,5 @@
 import { COMMAND_TYPES, TEAM_AI } from '../core/constants.js';
-import { getUnitCost } from '../content/unitBlueprints.js';
+import { getUnitCost, getBuildingCost, getBuildingConstructTicks, getBuildingHp } from '../content/unitBlueprints.js';
 
 const allowed = new Set(Object.values(COMMAND_TYPES));
 
@@ -17,7 +17,7 @@ export function commandSystem(state) {
   function isCombatEntity(entity) {
     if (!entity) return false;
     const type = entity.type;
-    return type === 'Scout' || type === 'LightInfantry' || type === 'Ranged' || type === 'HeavySoldier';
+    return type === 'LightInfantry' || type === 'Ranged' || type === 'HeavySoldier';
   }
 
   function canBuildingTrainUnit(building, unitType) {
@@ -127,6 +127,43 @@ export function commandSystem(state) {
         entity.components.gather.targetSpotId = targetSpot.id;
         entity.components.movement.target = { x: targetSpot.x, y: targetSpot.y };
       }
+    }
+
+    if (command.type === COMMAND_TYPES.PLACE_BUILDING && command.workerId != null && command.buildingType && command.x != null && command.y != null) {
+      const worker = state.entities.byId[command.workerId];
+      if (!worker || worker.type !== 'Worker' || worker.owner?.teamId !== issuingTeamId) continue;
+      if (worker.components?.build) continue; // already constructing
+
+      const tx = Math.max(0, Math.min(state.map.cols - 1, Math.round(command.x)));
+      const ty = Math.max(0, Math.min(state.map.rows - 1, Math.round(command.y)));
+
+      const terrain = state.map.terrain[ty * state.map.cols + tx];
+      if (terrain?.blocked) continue;
+
+      const occupied = state.entities.allIds.some((id) => {
+        const e = state.entities.byId[id];
+        const pos = e?.components?.position;
+        return pos && Math.round(pos.x) === tx && Math.round(pos.y) === ty;
+      });
+      if (occupied) continue;
+
+      const teamResources = issuingTeamId === 1 ? state.players.player.resources : state.players.ai.resources;
+      const cost = getBuildingCost(command.buildingType);
+      if (teamResources.mineral < cost.mineral || teamResources.energy < cost.energy) continue;
+
+      teamResources.mineral -= cost.mineral;
+      teamResources.energy -= cost.energy;
+
+      worker.components.build = {
+        type: command.buildingType,
+        targetX: tx,
+        targetY: ty,
+        ticksRemaining: getBuildingConstructTicks(command.buildingType),
+        totalTicks: getBuildingConstructTicks(command.buildingType)
+      };
+      worker.components.movement = worker.components.movement || {};
+      worker.components.movement.target = { x: tx, y: ty };
+      delete worker.components.gather;
     }
 
     if (command.type === COMMAND_TYPES.ATTACK_TARGET && Array.isArray(command.unitIds) && command.targetEntityId != null) {

@@ -3,7 +3,7 @@ export function combatSystem(state) {
     const attacker = state.entities.byId[id];
     if (!attacker) continue;
 
-    if (attacker.type === 'Worker') {
+    if (attacker.type === 'Worker' || attacker.type === 'Scout') {
       if (attacker.components?.combat?.targetEntityId != null) {
         attacker.components.combat.targetEntityId = null;
       }

@@ -8,9 +8,23 @@ export const UNIT_BLUEPRINTS = {
 
 // Buildings
 const BUILDING_BLUEPRINTS = {
-  HQ: { visionRange: 8.0 },
-  Barracks: { visionRange: 5.0 }
+  HQ:      { visionRange: 8.0, hp: 150, costMineral: 0,   costEnergy: 0,  constructTicks: 0   },
+  Barracks:{ visionRange: 5.0, hp: 100, costMineral: 120, costEnergy: 40, constructTicks: 180 }
 };
+
+export function getBuildingCost(type) {
+  const b = BUILDING_BLUEPRINTS[type];
+  if (!b) return { mineral: 999, energy: 999 };
+  return { mineral: b.costMineral, energy: b.costEnergy };
+}
+
+export function getBuildingConstructTicks(type) {
+  return BUILDING_BLUEPRINTS[type]?.constructTicks ?? 120;
+}
+
+export function getBuildingHp(type) {
+  return BUILDING_BLUEPRINTS[type]?.hp ?? 100;
+}
 
 export function createUnitComponents(type, x, y) {
   const base = UNIT_BLUEPRINTS[type] || UNIT_BLUEPRINTS.Worker;

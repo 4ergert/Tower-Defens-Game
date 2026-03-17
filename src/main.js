@@ -19,4 +19,8 @@ kernel.subscribe((snapshot) => {
 
 kernel.start();
 
+setTimeout(() => {
+  document.body.classList.add('cinematic-active');
+}, 3000);
+
 window.rtsKernel = kernel;

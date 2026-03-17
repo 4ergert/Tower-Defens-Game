@@ -1,4 +1,4 @@
-import { createUnitComponents, getBuildTicks, getUnitCost } from '../content/unitBlueprints.js';
+import { createUnitComponents, getBuildTicks, getUnitCost, getBuildingHp } from '../content/unitBlueprints.js';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -98,4 +98,50 @@ export function productionSystem(state) {
   }
 
   state.productionState.lastProcessedTick = state.tick;
+
+  // Worker construction
+  for (const id of state.entities.allIds) {
+    const entity = state.entities.byId[id];
+    if (!entity || entity.type !== 'Worker') continue;
+    const build = entity.components?.build;
+    if (!build) continue;
+
+    const pos = entity.components?.position;
+    if (!pos) continue;
+
+    // Wait until worker has arrived close enough to the build site
+    const dist = Math.hypot(pos.x - build.targetX, pos.y - build.targetY);
+    if (dist > 1.5) continue;
+
+    // Stop movement once arrived
+    if (entity.components.movement?.target) {
+      delete entity.components.movement.target;
+    }
+
+    build.ticksRemaining -= 1;
+    if (build.ticksRemaining > 0) continue;
+
+    // Construction complete — place the building
+    const builtId = state.entities.nextId;
+    state.entities.nextId += 1;
+    const hp = getBuildingHp(build.type);
+    state.entities.byId[builtId] = {
+      id: builtId,
+      type: build.type,
+      owner: { ...entity.owner },
+      components: {
+        position: { x: build.targetX, y: build.targetY },
+        health: { hp, maxHp: hp }
+      }
+    };
+    state.entities.allIds.push(builtId);
+
+    // Initialise production queue for the new building
+    if (!state.productionState.queuesByBuildingId[builtId]) {
+      state.productionState.queuesByBuildingId[builtId] = [];
+    }
+
+    delete entity.components.build;
+    state.stats.unitsCreated += 1;
+  }
 }

@@ -2,7 +2,7 @@ import { COMMAND_TYPES, TEAM_AI, TEAM_PLAYER } from '../core/constants.js';
 
 function isCombatUnit(entity) {
   if (!entity) return false;
-  return entity.type === 'Scout' || entity.type === 'LightInfantry' || entity.type === 'Ranged' || entity.type === 'HeavySoldier';
+  return entity.type === 'LightInfantry' || entity.type === 'Ranged' || entity.type === 'HeavySoldier';
 }
 
 function distance(a, b) {
