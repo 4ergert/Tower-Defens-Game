@@ -2601,4 +2601,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 100);
 });
-

@@ -250,6 +250,65 @@ body {
   box-shadow: 0 0 12px #c864ff;
 }
 
+/* RTS architecture checkpoint UI */
+.rts-shell {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rts-topbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 255, 247, 0.45);
+  border-radius: 10px;
+  background: rgba(2, 14, 28, 0.8);
+}
+
+.rts-resource {
+  color: #d8f7ff;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+}
+
+#rts-canvas {
+  width: 100%;
+  height: auto;
+  border: 1px solid rgba(0, 255, 247, 0.4);
+  border-radius: 10px;
+  background: #03101d;
+  touch-action: none;
+  user-select: none;
+}
+
+.rts-debug {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #a9cbff;
+  border: 1px solid rgba(127, 180, 255, 0.3);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(4, 13, 25, 0.75);
+}
+
+@media (max-width: 700px) {
+  .rts-topbar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px 12px;
+  }
+
+  .rts-resource {
+    font-size: 13px;
+  }
+}
+
 .grid-cell.start-cell {
   background: #ffe066 !important;
   color: #1a0036;

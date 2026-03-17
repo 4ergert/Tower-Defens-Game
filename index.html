@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css?family=IM+Fell+English:400&display=swap" rel="stylesheet">
 </head>
 
-<body onload="init()">
+<body>
   <!-- lives-container nur im main-content -->
   <header>
     <h1>StarCraft for Android ;)</h1>
@@ -38,13 +38,13 @@
           </div>
         </div>
       </div>
-      <!-- grid und tower-menu werden per JS eingefügt -->
+      <div id="rts-root"></div>
     </section>
   </main>
   <footer>
     <p>&copy; 2026 Tower Defense</p>
   </footer>
-  <script src="script.js"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
 
 </html>
